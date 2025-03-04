@@ -6,7 +6,7 @@ import (
 )
 
 func TestOrderedMap(t *testing.T) {
-	om := NewOrderedMap[string, int]()
+	om := NewMap[string, int]()
 	om.Set("a", 1)
 	om.Set("b", 2)
 	om.Set("c", 3)
@@ -23,7 +23,7 @@ func TestOrderedMap(t *testing.T) {
 	})
 
 	// 反序列化
-	om2 := NewOrderedMap[string, int]()
+	om2 := NewMap[string, int]()
 	err = json.Unmarshal(jsonData, om2)
 	if err != nil {
 		t.Errorf("UnmarshalJSON failed: %v", err)

@@ -6,7 +6,7 @@ import (
 )
 
 func TestOrderedSet(t *testing.T) {
-	set := NewOrderedSet[string]()
+	set := NewSet[string]()
 
 	// 测试添加元素
 	set.Add("a")
@@ -37,7 +37,7 @@ func TestOrderedSet(t *testing.T) {
 	t.Logf("JSON data: %s", jsonData)
 
 	// 测试反序列化
-	set2 := NewOrderedSet[string]()
+	set2 := NewSet[string]()
 	err = json.Unmarshal(jsonData, set2)
 	if err != nil {
 		t.Errorf("UnmarshalJSON failed: %v", err)
