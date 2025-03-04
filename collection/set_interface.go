@@ -7,5 +7,5 @@ type Set[T comparable] interface {
 	Clear()
 	Has(item T) bool
 	Vals() []T
-	ForEach(fn func(item T) bool)
+	Each(fn func(item T) bool)
 }

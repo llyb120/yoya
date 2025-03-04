@@ -208,8 +208,8 @@ func (om *OrderedMap[K, V]) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ForEach 按顺序遍历所有键值对
-func (om *OrderedMap[K, V]) ForEach(fn func(key K, value V) bool) {
+// Each 按顺序遍历所有键值对
+func (om *OrderedMap[K, V]) Each(fn func(key K, value V) bool) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 

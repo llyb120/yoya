@@ -57,12 +57,12 @@ func TestOrderedSet(t *testing.T) {
 
 	// 测试遍历
 	var result []string
-	set2.ForEach(func(element string) bool {
+	set2.Each(func(element string) bool {
 		result = append(result, element)
 		return true
 	})
 
 	if len(result) != len(expected) {
-		t.Errorf("ForEach: Expected %v elements, got %v", expected, result)
+		t.Errorf("Each: Expected %v elements, got %v", expected, result)
 	}
 }

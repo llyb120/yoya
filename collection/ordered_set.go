@@ -82,8 +82,8 @@ func (os *OrderedSet[T]) Vals() []T {
 	return result
 }
 
-// ForEach 遍历集合中的所有元素
-func (os *OrderedSet[T]) ForEach(fn func(element T) bool) {
+// Each 遍历集合中的所有元素
+func (os *OrderedSet[T]) Each(fn func(element T) bool) {
 	os.mu.RLock()
 	defer os.mu.RUnlock()
 

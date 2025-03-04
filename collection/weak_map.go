@@ -80,7 +80,7 @@ func (wm *WeakMap[K, V]) Clear() {
 	wm.data = make(map[K]V)
 }
 
-func (wm *WeakMap[K, V]) ForEach(fn func(key K, value V) bool) {
+func (wm *WeakMap[K, V]) Each(fn func(key K, value V) bool) {
 	wm.mu.RLock()
 	defer wm.mu.RUnlock()
 

@@ -8,5 +8,5 @@ type Map[K comparable, V any] interface {
 	Keys() []K
 	Vals() []V
 	Clear()
-	ForEach(fn func(key K, value V) bool)
+	Each(fn func(key K, value V) bool)
 }
