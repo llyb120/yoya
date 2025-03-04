@@ -16,7 +16,7 @@ type OrderedMap[K comparable, V any] struct {
 }
 
 // NewOrderedMap 创建一个新的有序映射
-func NewOrderedMap[K comparable, V any]() Map[K, V] {
+func NewMap[K comparable, V any]() Map[K, V] {
 	return &OrderedMap[K, V]{
 		indexes: make(map[K]int),
 	}

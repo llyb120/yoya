@@ -13,7 +13,7 @@ type OrderedSet[T comparable] struct {
 }
 
 // NewOrderedSet 创建一个新的有序集合
-func NewOrderedSet[T comparable]() Set[T] {
+func NewSet[T comparable]() Set[T] {
 	return &OrderedSet[T]{
 		indexes: make(map[T]int),
 	}
