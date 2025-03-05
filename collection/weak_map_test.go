@@ -44,7 +44,7 @@ func TestWeakMapGC(t *testing.T) {
 	time.Sleep(time.Millisecond * 500)
 
 	// 验证 map 是否为空
-	if size := wm.Size(); size != 0 {
+	if size := wm.Len(); size != 0 {
 		t.Errorf("Expected WeakMap to be empty after GC, but got size: %d", size)
 	}
 }

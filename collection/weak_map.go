@@ -2,23 +2,24 @@ package collection
 
 import (
 	"runtime"
-	"sync"
+
+	"github.com/llyb120/gotool/syncx"
 )
 
 // WeakMap 实现了一个键为弱引用的映射
 type WeakMap[K comparable, V any] struct {
-	mu   sync.RWMutex
+	mu   syncx.Lock
 	data map[K]V
 }
 
 // NewWeakMap 创建一个新的 WeakMap
-func NewWeakMap[K comparable, V any]() Map[K, V] {
+func NewWeakMap[K comparable, V any]() *WeakMap[K, V] {
 	return &WeakMap[K, V]{
 		data: make(map[K]V),
 	}
 }
 
-// Store 存储键值对，并为键设置终结器
+// Set 存储键值对，并为键设置终结器
 func (wm *WeakMap[K, V]) Set(key K, value V) {
 	// 确保 key 是指针类型
 	wm.mu.Lock()
@@ -66,7 +67,7 @@ func (wm *WeakMap[K, V]) Del(key K) V {
 }
 
 // Len 返回当前映射中的元素数量
-func (wm *WeakMap[K, V]) Size() int {
+func (wm *WeakMap[K, V]) Len() int {
 	wm.mu.RLock()
 	defer wm.mu.RUnlock()
 

@@ -14,8 +14,8 @@ func TestOrderedSet(t *testing.T) {
 	set.Add("c")
 	set.Add("a") // 重复添加
 
-	if set.Size() != 3 {
-		t.Errorf("Expected size 3, got %d", set.Size())
+	if set.Len() != 3 {
+		t.Errorf("Expected size 3, got %d", set.Len())
 	}
 
 	// 测试包含元素

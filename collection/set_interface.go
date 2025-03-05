@@ -3,7 +3,7 @@ package collection
 type Set[T comparable] interface {
 	Add(item T)
 	Del(item T)
-	Size() int
+	Len() int
 	Clear()
 	Has(item T) bool
 	Vals() []T

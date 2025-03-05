@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"sync"
+
+	"github.com/llyb120/gotool/syncx"
 )
 
 // OrderedMap 是一个协程安全的有序映射，按插入顺序维护键值对
 type OrderedMap[K comparable, V any] struct {
-	mu      sync.RWMutex
+	mu      syncx.Lock
 	keys    []K
 	values  []V
 	indexes map[K]int
 }
 
 // NewOrderedMap 创建一个新的有序映射
-func NewMap[K comparable, V any]() Map[K, V] {
+func NewMap[K comparable, V any]() *OrderedMap[K, V] {
 	return &OrderedMap[K, V]{
 		indexes: make(map[K]int),
 	}
@@ -27,10 +28,6 @@ func (om *OrderedMap[K, V]) Set(key K, value V) {
 	om.mu.Lock()
 	defer om.mu.Unlock()
 
-	om.doSet(key, value)
-}
-
-func (om *OrderedMap[K, V]) doSet(key K, value V) {
 	if index, exists := om.indexes[key]; exists {
 		// 如果键已存在，只更新值
 		om.values[index] = value
@@ -75,7 +72,7 @@ func (om *OrderedMap[K, V]) Del(key K) V {
 }
 
 // Size 返回映射大小
-func (om *OrderedMap[K, V]) Size() int {
+func (om *OrderedMap[K, V]) Len() int {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 	return len(om.keys)
@@ -86,7 +83,7 @@ func (om *OrderedMap[K, V]) Keys() []K {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
-	keys := make([]K, 0, len(om.keys))
+	keys := make([]K, len(om.keys))
 	copy(keys, om.keys)
 	return keys
 }
@@ -106,10 +103,6 @@ func (om *OrderedMap[K, V]) Clear() {
 	om.mu.Lock()
 	defer om.mu.Unlock()
 
-	om.doClear()
-}
-
-func (om *OrderedMap[K, V]) doClear() {
 	om.keys = nil
 	om.values = nil
 	om.indexes = make(map[K]int)
@@ -157,7 +150,7 @@ func (om *OrderedMap[K, V]) UnmarshalJSON(data []byte) error {
 	defer om.mu.Unlock()
 
 	// 清空现有数据
-	om.doClear()
+	om.Clear()
 
 	dec := json.NewDecoder(bytes.NewReader(data))
 
@@ -195,7 +188,7 @@ func (om *OrderedMap[K, V]) UnmarshalJSON(data []byte) error {
 		}
 
 		// 添加到有序映射
-		om.doSet(key, value)
+		om.Set(key, value)
 	}
 
 	// 确保结束是一个对象
