@@ -93,7 +93,7 @@ func (om *OrderedMap[K, V]) Vals() []V {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
-	values := make([]V, 0, len(om.values))
+	values := make([]V, len(om.values))
 	copy(values, om.values)
 	return values
 }
