@@ -1,4 +1,4 @@
-package collection
+package stlx
 
 import (
 	"encoding/json"
@@ -57,12 +57,12 @@ func TestOrderedSet(t *testing.T) {
 
 	// 测试遍历
 	var result []string
-	set2.Each(func(element string) bool {
+	set2.For(func(element string) bool {
 		result = append(result, element)
 		return true
 	})
 
 	if len(result) != len(expected) {
-		t.Errorf("Each: Expected %v elements, got %v", expected, result)
+		t.Errorf("For: Expected %v elements, got %v", expected, result)
 	}
 }

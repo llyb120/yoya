@@ -1,4 +1,4 @@
-package collection
+package stlx
 
 import (
 	"encoding/json"
@@ -17,7 +17,7 @@ func TestOrderedMap(t *testing.T) {
 	}
 	t.Logf("jsonData: %s", jsonData)
 
-	om.Each(func(key string, value int) bool {
+	om.For(func(key string, value int) bool {
 		t.Logf("key: %s, value: %d", key, value)
 		return true
 	})
@@ -28,7 +28,7 @@ func TestOrderedMap(t *testing.T) {
 	if err != nil {
 		t.Errorf("UnmarshalJSON failed: %v", err)
 	}
-	om2.Each(func(key string, value int) bool {
+	om2.For(func(key string, value int) bool {
 		t.Logf("key: %s, value: %d", key, value)
 		return true
 	})

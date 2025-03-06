@@ -1,4 +1,4 @@
-package collection
+package stlx
 
 import (
 	"encoding/json"
@@ -50,8 +50,8 @@ func (os *OrderedSet[T]) Vals() []T {
 }
 
 // Each 遍历集合中的所有元素
-func (os *OrderedSet[T]) Each(fn func(element T) bool) {
-	os.mp.Each(func(key T, value void) bool {
+func (os *OrderedSet[T]) For(fn func(element T) bool) {
+	os.mp.For(func(key T, value void) bool {
 		return fn(key)
 	})
 }

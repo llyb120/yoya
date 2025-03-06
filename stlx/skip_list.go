@@ -1,4 +1,4 @@
-package collection
+package stlx
 
 import (
 	"encoding/json"
@@ -189,7 +189,7 @@ func (sl *SkipList[T]) Get(index int) (T, bool) {
 	return current.value, true
 }
 
-func (sl *SkipList[T]) Each(fn func(value T) bool) {
+func (sl *SkipList[T]) For(fn func(value T) bool) {
 	sl.mu.RLock()
 	defer sl.mu.RUnlock()
 

@@ -1,4 +1,4 @@
-package collection
+package stlx
 
 import (
 	"testing"
@@ -72,9 +72,9 @@ func TestSkipMap(t *testing.T) {
 		t.Errorf("Expected not found for key 2 after deletion")
 	}
 
-	// 测试 Each
+	// 测试 For
 	visited := make(map[int]string)
-	sl.Each(func(key int, value string) bool {
+	sl.For(func(key int, value string) bool {
 		visited[key] = value
 		return true
 	})
@@ -88,9 +88,9 @@ func TestSkipMap(t *testing.T) {
 		t.Errorf("Expected 'three' for key 3, got '%s', ok: %v", v, ok)
 	}
 
-	// 测试 Each 提前终止
+	// 测试 For 提前终止
 	count := 0
-	sl.Each(func(key int, value string) bool {
+	sl.For(func(key int, value string) bool {
 		count++
 		return false // 只访问第一个元素
 	})
@@ -134,7 +134,7 @@ func TestSkipMapWithStrings(t *testing.T) {
 	}
 
 	i := 0
-	sl.Each(func(key string, value int) bool {
+	sl.For(func(key string, value int) bool {
 		if i >= len(expected) {
 			t.Errorf("Too many items in skiplist")
 			return false
@@ -165,7 +165,7 @@ func TestSkipMapWithStrings(t *testing.T) {
 	}
 
 	i = 0
-	sl.Each(func(key string, value int) bool {
+	sl.For(func(key string, value int) bool {
 		if i >= len(expected) {
 			t.Errorf("Too many items in skiplist")
 			return false
@@ -225,9 +225,9 @@ func TestSkipMapAsMap(t *testing.T) {
 		t.Errorf("Expected length 2, got %d", m.Len())
 	}
 
-	// 测试 Each
+	// 测试 For
 	visited := make(map[string]int)
-	m.Each(func(key string, value int) bool {
+	m.For(func(key string, value int) bool {
 		visited[key] = value
 		return true
 	})

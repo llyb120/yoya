@@ -1,4 +1,4 @@
-package collection
+package stlx
 
 import (
 	"fmt"
@@ -66,15 +66,15 @@ func TestSkipList(t *testing.T) {
 		t.Errorf("Expected not found for key 2 after deletion")
 	}
 
-	// 测试 Each
-	sl.Each(func(key int) bool {
+	// 测试 For
+	sl.For(func(key int) bool {
 		t.Log(key)
 		return true
 	})
 
-	// 测试 Each 提前终止
+	// 测试 For 提前终止
 	count := 0
-	sl.Each(func(key int) bool {
+	sl.For(func(key int) bool {
 		count++
 		return false // 只访问第一个元素
 	})
@@ -117,7 +117,7 @@ func TestSkipListWithStrings(t *testing.T) {
 	}
 
 	i := 0
-	sl.Each(func(key string) bool {
+	sl.For(func(key string) bool {
 		if i >= len(expected) {
 			t.Errorf("Too many items in skiplist")
 			return false
@@ -147,7 +147,7 @@ func TestSkipListWithStrings(t *testing.T) {
 	}
 
 	i = 0
-	sl.Each(func(key string) bool {
+	sl.For(func(key string) bool {
 		if i >= len(expected) {
 			t.Errorf("Too many items in skiplist")
 			return false
@@ -207,8 +207,8 @@ func TestSkipListAsMap(t *testing.T) {
 		t.Errorf("Expected length 2, got %d", m.Len())
 	}
 
-	// 测试 Each
-	m.Each(func(key string) bool {
+	// 测试 For
+	m.For(func(key string) bool {
 		t.Log(key)
 		return true
 	})
@@ -277,7 +277,7 @@ func ExampleSkipList() {
 	sl.Add(2)
 
 	// 遍历跳表（将按键的顺序输出）
-	sl.Each(func(key int) bool {
+	sl.For(func(key int) bool {
 		fmt.Printf("%d\n", key)
 		return true
 	})

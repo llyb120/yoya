@@ -1,4 +1,4 @@
-package collection
+package stlx
 
 import (
 	"math/rand"
@@ -235,9 +235,9 @@ func (sl *SkipMap[K, V]) Vals() []V {
 	return values
 }
 
-// Each 遍历跳表中的所有键值对
+// For 遍历跳表中的所有键值对
 // 如果回调函数返回 false，则停止遍历
-func (sl *SkipMap[K, V]) Each(fn func(key K, value V) bool) {
+func (sl *SkipMap[K, V]) For(fn func(key K, value V) bool) {
 	sl.mu.RLock()
 	defer sl.mu.RUnlock()
 

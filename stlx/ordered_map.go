@@ -1,4 +1,4 @@
-package collection
+package stlx
 
 import (
 	"bytes"
@@ -201,8 +201,8 @@ func (om *OrderedMap[K, V]) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Each 按顺序遍历所有键值对
-func (om *OrderedMap[K, V]) Each(fn func(key K, value V) bool) {
+// For 按顺序遍历所有键值对
+func (om *OrderedMap[K, V]) For(fn func(key K, value V) bool) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
