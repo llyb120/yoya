@@ -1,6 +1,7 @@
 package datex
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -233,6 +234,37 @@ func TestMoveEdgeCases(t *testing.T) {
 			t.Errorf("Move() result too short = %v", got)
 		}
 	})
+}
+
+func TestCompare(t *testing.T) {
+	tests := []struct {
+		name     string
+		left     string
+		operator string
+		right    string
+		want     bool
+		wantErr  bool
+	}{
+		{"相等", "2024-01-01", EQ, "2024-01-01", true, false},
+		{"不相等", "2024-01-01", NE, "2024-01-02", true, false},
+		{"大于", "2024-01-01", GT, "2024-01-01", false, false},
+		{"大于等于", "2024-01-01", GE, "2024-01-01", true, false},
+		{"小于", "2024-01-01", LT, "2024-01-02", true, false},
+		{"小于等于", "2024-01-01", LE, "2024-01-01", true, false},
+		{"错误格式", "2024-01-01", EQ, "invalid-date", false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := Compare(tt.left, tt.operator, tt.right)
+			if got != tt.want {
+				t.Errorf("Compare() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	if Compare("2024-02-03 20:00", ">=", "2024-02-02") {
+		fmt.Println("a jian")
+	}
 }
 
 // 性能测试

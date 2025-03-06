@@ -2,7 +2,11 @@ package datex
 
 import (
 	"fmt"
+	"sync"
 	"time"
+
+	"github.com/llyb120/gotool/cachex"
+	"github.com/llyb120/gotool/syncx"
 )
 
 // 定义时间单位常量，使用特定的数值便于计算
@@ -15,6 +19,13 @@ const (
 	Day    TimeUnit      = 1000000
 	Month  TimeUnit      = 100000000
 	Year   TimeUnit      = 10000000000
+
+	EQ = "=="
+	NE = "!="
+	GT = ">"
+	GE = ">="
+	LT = "<"
+	LE = "<="
 )
 
 // Guess 函数尝试按优先级从上到下解析字符串时间
@@ -145,4 +156,56 @@ func Move(date string, movements ...any) (string, error) {
 		return t.Format("2006-01-02 15:04:05"), nil
 	}
 	return t.Format("2006-01-02"), nil
+}
+
+var compareHolder *syncx.Holder[*cachex.OnceCache[time.Time]]
+var once sync.Once
+
+func Compare(left string, operator string, right string) bool {
+	once.Do(func() {
+		compareHolder = syncx.NewHolder(func() *cachex.OnceCache[time.Time] {
+			return cachex.NewOnceCache[time.Time](cachex.OnceCacheOption{
+				Expire:           30 * time.Second,
+				CheckInterval:    0,
+				DefaultKeyExpire: 0,
+				Destroy: func() {
+					// 自动清理
+					compareHolder.Del(operator)
+				},
+			})
+		})
+	})
+	cache := compareHolder.Get(operator)
+	// 获取左值
+	leftTime := cache.GetOrSetFunc(left, func() time.Time {
+		t, err := Guess(left)
+		if err != nil {
+			return time.Time{}
+		}
+		return t
+	})
+	// 获取右值
+	rightTime := cache.GetOrSetFunc(right, func() time.Time {
+		t, err := Guess(right)
+		if err != nil {
+			return time.Time{}
+		}
+		return t
+	})
+	switch operator {
+	case GT:
+		return leftTime.After(rightTime)
+	case GE:
+		return leftTime.After(rightTime) || leftTime.Equal(rightTime)
+	case LT:
+		return leftTime.Before(rightTime)
+	case LE:
+		return leftTime.Before(rightTime) || leftTime.Equal(rightTime)
+	case EQ:
+		return leftTime.Equal(rightTime)
+	case NE:
+		return !leftTime.Equal(rightTime)
+	default:
+		return false
+	}
 }
