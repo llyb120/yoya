@@ -9,12 +9,12 @@ import (
 type TimeUnit int64
 
 const (
-	Second TimeUnit = 1
-	Minute TimeUnit = 100
-	Hour   TimeUnit = 10000
-	Day    TimeUnit = 1000000
-	Month  TimeUnit = 100000000
-	Year   TimeUnit = 10000000000
+	Second time.Duration = time.Second
+	Minute time.Duration = time.Minute
+	Hour   time.Duration = time.Hour
+	Day    TimeUnit      = 1000000
+	Month  TimeUnit      = 100000000
+	Year   TimeUnit      = 10000000000
 )
 
 // Guess 函数尝试按优先级从上到下解析字符串时间
@@ -113,7 +113,7 @@ func adjustMonthBoundary(t time.Time, years, months, days int) time.Time {
 	return newTime
 }
 
-func Move(date string, movements ...TimeUnit) (string, error) {
+func Move(date string, movements ...any) (string, error) {
 	// 使用Guess函数尝试解析日期
 	t, err := Guess(date)
 	if err != nil {
@@ -126,24 +126,17 @@ func Move(date string, movements ...TimeUnit) (string, error) {
 	// 处理所有的时间调整
 	for _, m := range movements {
 		// 提取各个时间单位的调整值
-		years := int((m / Year) % 100)
-		months := int((m / Month) % 100)
-		days := int((m / Day) % 100)
-		hours := int((m / Hour) % 100)
-		minutes := int((m / Minute) % 100)
-		seconds := int((m / Second) % 100)
-
-		// 使用自定义函数处理年月日的调整，特别是月份边界问题
-		if years != 0 || months != 0 || days != 0 {
-			t = adjustMonthBoundary(t, years, months, days)
-		}
-
-		// 处理时分秒的调整
-		if hours != 0 || minutes != 0 || seconds != 0 {
-			duration := time.Duration(hours)*time.Hour +
-				time.Duration(minutes)*time.Minute +
-				time.Duration(seconds)*time.Second
-			t = t.Add(duration)
+		switch m := any(m).(type) {
+		case TimeUnit:
+			years := int((m / Year) % 100)
+			months := int((m / Month) % 100)
+			days := int((m / Day) % 100)
+			// 使用自定义函数处理年月日的调整，特别是月份边界问题
+			if years != 0 || months != 0 || days != 0 {
+				t = adjustMonthBoundary(t, years, months, days)
+			}
+		case time.Duration:
+			t = t.Add(m)
 		}
 	}
 

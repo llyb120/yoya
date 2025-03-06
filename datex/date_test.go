@@ -49,127 +49,127 @@ func TestMove(t *testing.T) {
 	tests := []struct {
 		name       string
 		dateStr    string
-		movements  []TimeUnit
+		movements  []any
 		wantOutput string
 		wantErr    bool
 	}{
 		{
 			name:       "加一年",
 			dateStr:    "2024-01-01",
-			movements:  []TimeUnit{1 * Year},
+			movements:  []any{1 * Year},
 			wantOutput: "2025-01-01",
 			wantErr:    false,
 		},
 		{
 			name:       "减一年",
 			dateStr:    "2024-01-01",
-			movements:  []TimeUnit{-1 * Year},
+			movements:  []any{-1 * Year},
 			wantOutput: "2023-01-01",
 			wantErr:    false,
 		},
 		{
 			name:       "加一个月",
 			dateStr:    "2024-01-31",
-			movements:  []TimeUnit{1 * Month},
+			movements:  []any{1 * Month},
 			wantOutput: "2024-02-29", // 2024是闰年，1月31日加一个月是2月29日
 			wantErr:    false,
 		},
 		{
 			name:       "减一个月",
 			dateStr:    "2024-03-31",
-			movements:  []TimeUnit{-1 * Month},
+			movements:  []any{-1 * Month},
 			wantOutput: "2024-02-29", // 2024是闰年，3月31日减一个月是2月29日
 			wantErr:    false,
 		},
 		{
 			name:       "加十天",
 			dateStr:    "2024-02-20",
-			movements:  []TimeUnit{10 * Day},
+			movements:  []any{10 * Day},
 			wantOutput: "2024-03-01",
 			wantErr:    false,
 		},
 		{
 			name:       "加24小时",
 			dateStr:    "2024-01-01 00:00:00",
-			movements:  []TimeUnit{24 * Hour},
+			movements:  []any{24 * Hour},
 			wantOutput: "2024-01-02 00:00:00",
 			wantErr:    false,
 		},
 		{
 			name:       "加90分钟",
 			dateStr:    "2024-01-01 00:00:00",
-			movements:  []TimeUnit{90 * Minute},
+			movements:  []any{90 * Minute},
 			wantOutput: "2024-01-01 01:30:00",
 			wantErr:    false,
 		},
+		{
+			name:       "加3600秒",
+			dateStr:    "2024-01-01 00:00:00",
+			movements:  []any{3600 * Second},
+			wantOutput: "2024-01-01 01:00:00",
+			wantErr:    false,
+		},
 		// 不支持这种调整
-		//{
-		//	name:       "加3600秒",
-		//	dateStr:    "2024-01-01 00:00:00",
-		//	movements:  []TimeUnit{3600 * Second},
-		//	wantOutput: "2024-01-01 01:00:00",
-		//	wantErr:    false,
-		//},
-		//{
-		//	name:       "混合调整-单个表达式",
-		//	dateStr:    "2024-01-01",
-		//	movements:  []TimeUnit{-1*Year + 2*Month + 10*Day + 12*Hour + 30*Minute + 45*Second},
-		//	wantOutput: "2023-03-11 12:30:45",
-		//	wantErr:    false,
-		//},
+		{
+			name:       "混合调整-单个表达式",
+			dateStr:    "2024-01-01 00:00:00",
+			movements:  []any{-1 * Year, 2 * Month, 10 * Day, 12*Hour + 30*Minute + 45*Second},
+			wantOutput: "2023-03-11 12:30:45",
+			wantErr:    false,
+		},
 		{
 			name:       "混合调整-多个表达式",
 			dateStr:    "2024-01-01 00:00:00",
-			movements:  []TimeUnit{-1 * Year, 2 * Month, 10 * Day, 12 * Hour, 30 * Minute, 45 * Second},
+			movements:  []any{-1 * Year, 2 * Month, 10 * Day, 12 * Hour, 30 * Minute, 45 * Second},
 			wantOutput: "2023-03-11 12:30:45",
 			wantErr:    false,
 		},
 		{
 			name:       "边界测试-月末",
 			dateStr:    "2024-01-31",
-			movements:  []TimeUnit{1 * Month, 1 * Month},
+			movements:  []any{1 * Month, 1 * Month},
 			wantOutput: "2024-03-31",
 			wantErr:    false,
 		},
 		{
 			name:       "边界测试-2月29日",
 			dateStr:    "2024-02-29",
-			movements:  []TimeUnit{1 * Year},
+			movements:  []any{1 * Year},
 			wantOutput: "2025-02-28", // 2025年不是闰年
 			wantErr:    false,
 		},
 		{
 			name:       "不同格式日期-斜杠",
 			dateStr:    "2024/01/01",
-			movements:  []TimeUnit{1 * Month},
+			movements:  []any{1 * Month},
 			wantOutput: "2024-02-01",
 			wantErr:    false,
 		},
 		{
 			name:       "不同格式日期-美式",
 			dateStr:    "01/02/2024",
-			movements:  []TimeUnit{1 * Month},
+			movements:  []any{1 * Month},
 			wantOutput: "2024-02-02",
 			wantErr:    false,
 		},
 		{
 			name:       "错误格式日期",
 			dateStr:    "invalid-date",
-			movements:  []TimeUnit{1 * Day},
+			movements:  []any{1 * Day},
 			wantOutput: "",
 			wantErr:    true,
 		},
 		{
 			name:       "保留输出格式-日期",
 			dateStr:    "2024-01-01",
-			movements:  []TimeUnit{1 * Day},
+			movements:  []any{1 * Day},
 			wantOutput: "2024-01-02",
 			wantErr:    false,
 		},
 		{
 			name:       "保留输出格式-日期时间",
 			dateStr:    "2024-01-01 12:00:00",
-			movements:  []TimeUnit{1 * Day},
+			movements:  []any{1 * Day},
 			wantOutput: "2024-01-02 12:00:00",
 			wantErr:    false,
 		},
