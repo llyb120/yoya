@@ -200,10 +200,10 @@ func TestMove(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var got = tt.dateStr
-			var err error
-			got, err = Move(got, tt.movements...)
+			got = Move(got, tt.movements...)
 
-			if (err != nil) != tt.wantErr {
+			var err = got == ""
+			if err != tt.wantErr {
 				t.Errorf("Move() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
@@ -222,11 +222,7 @@ func TestMoveEdgeCases(t *testing.T) {
 
 	// 测试非常大的时间调整
 	t.Run("大数值调整", func(t *testing.T) {
-		got, err := Move("2024-01-01", 50*Year, 60*Month)
-		if err != nil {
-			t.Errorf("Move() error = %v", err)
-			return
-		}
+		got := Move("2024-01-01", 50*Year, 60*Month)
 		// 50年加60个月 = 55年
 		expected := "2079-01-01"
 		if got != expected {
@@ -236,11 +232,7 @@ func TestMoveEdgeCases(t *testing.T) {
 
 	// 测试负数和零
 	t.Run("零调整", func(t *testing.T) {
-		got, err := Move("2024-01-01", 0*Year)
-		if err != nil {
-			t.Errorf("Move() error = %v", err)
-			return
-		}
+		got := Move("2024-01-01", 0*Year)
 		expected := "2024-01-01"
 		if got != expected {
 			t.Errorf("Move() = %v, want %v", got, expected)
@@ -249,10 +241,10 @@ func TestMoveEdgeCases(t *testing.T) {
 
 	// 测试多个时区
 	t.Run("时区处理", func(t *testing.T) {
-		got, err := Move("2024-01-01T12:00:00+08:00", 1*Day)
-		if err != nil {
-			t.Errorf("Move() error = %v", err)
-			return
+		got := Move("2024-01-01T12:00:00+08:00", 1*Day)
+		expected := "2024-01-02T12:00:00+08:00"
+		if got != expected {
+			t.Errorf("Move() = %v, want %v", got, expected)
 		}
 		// 检查结果应该保留时区信息
 		if len(got) < 10 {

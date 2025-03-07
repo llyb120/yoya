@@ -11,7 +11,6 @@ import (
 )
 
 // 定义时间单位常量，使用特定的数值便于计算
-type timeUnit int64
 type moveType string
 type dayUnit int64
 type weekUnit int64
@@ -36,21 +35,27 @@ const (
 	FirstDayOfCNWeek moveType = "FirstDayOfCNWeek"
 	LastDayOfCNWeek  moveType = "LastDayOfCNWeek"
 
-	EQ = "=="
-	NE = "!="
-	GT = ">"
-	GE = ">="
-	LT = "<"
-	LE = "<="
+	EQ  = "=="
+	NE  = "!="
+	GT  = ">"
+	GE  = ">="
+	LT  = "<"
+	LE  = "<="
+	MEQ = "~="
 )
 
-// Guess 函数尝试按优先级从上到下解析字符串时间
 func Guess(dateStr string) (time.Time, error) {
+	t, _, err := guess(dateStr)
+	return t, err
+}
+
+// Guess 函数尝试按优先级从上到下解析字符串时间
+func guess(dateStr string) (time.Time, string, error) {
 	// 去除可能的空白字符
 	dateStr = strings.TrimSpace(dateStr)
 
 	if dateStr == "" {
-		return time.Time{}, fmt.Errorf("日期字符串为空")
+		return time.Time{}, "", fmt.Errorf("日期字符串为空")
 	}
 
 	// 根据长度尝试解析
@@ -73,13 +78,17 @@ func Guess(dateStr string) (time.Time, error) {
 		formats = []string{
 			"2006-01-02 15:04:05",
 			"2006/01/02 15:04:05",
-			time.RFC3339, // 带时区的ISO8601
+			"2006-01-02T15:04:05",
 		}
 
 	case 20:
 		formats = []string{
 			time.RFC3339, // ISO8601带时区
-			time.RFC1123,
+		}
+
+	case 24, 25:
+		formats = []string{
+			time.RFC3339, // 带时区的ISO8601
 			time.RFC1123Z,
 		}
 
@@ -93,21 +102,25 @@ func Guess(dateStr string) (time.Time, error) {
 			"20060102", // 紧凑日期
 		}
 
-	case 25:
+	case 28, 29, 30:
 		formats = []string{
 			time.RFC3339Nano,
-			time.RFC822Z,
+		}
+
+	case 22, 23:
+		formats = []string{
 			time.RFC850,
+			time.RFC1123,
 		}
 
 	}
 
 	for _, format := range formats {
 		if t, err := time.Parse(format, dateStr); err == nil {
-			return t, nil
+			return t, format, nil
 		}
 	}
-	return time.Time{}, fmt.Errorf("日期格式错误: %s", dateStr)
+	return time.Time{}, "", fmt.Errorf("日期格式错误: %s", dateStr)
 }
 
 // 获取月份的最后一天
@@ -171,15 +184,22 @@ func adjustMonthBoundary(t time.Time, years, months, days int) time.Time {
 	return newTime
 }
 
-func Move(date string, movements ...any) (string, error) {
+func Move[T string | time.Time](date T, movements ...any) T {
 	// 使用Guess函数尝试解析日期
-	t, err := Guess(date)
-	if err != nil {
-		return "", err
-	}
+	d, isString := any(date).(string)
+	var t time.Time
+	var err error
+	var format string
 
-	// 记录原始日期是否包含时间部分
-	hasTime := len(date) > 10
+	if isString {
+		t, format, err = guess(d)
+		if err != nil {
+			var zero T
+			return zero
+		}
+	} else {
+		t = any(date).(time.Time)
+	}
 
 	// 处理所有的时间调整
 	var years, months, days int
@@ -247,17 +267,18 @@ func Move(date string, movements ...any) (string, error) {
 		t = t.Add(time.Duration(duration))
 	}
 
-	// 根据输入日期格式决定输出格式
-	if hasTime {
-		return t.Format("2006-01-02 15:04:05"), nil
+	if isString {
+		// 根据输入日期格式决定输出格式
+		return any(t.Format(format)).(T)
+	} else {
+		return any(t).(T)
 	}
-	return t.Format("2006-01-02"), nil
 }
 
 var compareHolder *syncx.Holder[*cachex.BaseCache[time.Time]]
 var once sync.Once
 
-func Compare(left string, operator string, right string) bool {
+func Compare[L string | time.Time, R string | time.Time](left L, operator string, right R) bool {
 	once.Do(func() {
 		compareHolder = syncx.NewHolder(func() *cachex.BaseCache[time.Time] {
 			return cachex.NewBaseCache[time.Time](cachex.OnceCacheOption{
@@ -272,22 +293,35 @@ func Compare(left string, operator string, right string) bool {
 		})
 	})
 	cache := compareHolder.Get(operator)
+
+	str, isStr := any(left).(string)
+	var leftTime time.Time
 	// 获取左值
-	leftTime := cache.GetOrSetFunc(left, func() time.Time {
-		t, err := Guess(left)
-		if err != nil {
-			return time.Time{}
-		}
-		return t
-	})
+	if isStr {
+		leftTime = cache.GetOrSetFunc(str, func() time.Time {
+			t, err := Guess(str)
+			if err != nil {
+				return time.Time{}
+			}
+			return t
+		})
+	} else {
+		leftTime = any(left).(time.Time)
+	}
 	// 获取右值
-	rightTime := cache.GetOrSetFunc(right, func() time.Time {
-		t, err := Guess(right)
-		if err != nil {
-			return time.Time{}
-		}
-		return t
-	})
+	str, isStr = any(right).(string)
+	var rightTime time.Time
+	if isStr {
+		rightTime = cache.GetOrSetFunc(str, func() time.Time {
+			t, err := Guess(str)
+			if err != nil {
+				return time.Time{}
+			}
+			return t
+		})
+	} else {
+		rightTime = any(right).(time.Time)
+	}
 	switch operator {
 	case GT:
 		return leftTime.After(rightTime)
@@ -301,6 +335,8 @@ func Compare(left string, operator string, right string) bool {
 		return leftTime.Equal(rightTime)
 	case NE:
 		return !leftTime.Equal(rightTime)
+	case MEQ:
+		return leftTime.Year() == rightTime.Year() && leftTime.Month() == rightTime.Month() && leftTime.Day() == rightTime.Day()
 	default:
 		return false
 	}
