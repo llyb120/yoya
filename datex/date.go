@@ -226,7 +226,7 @@ func Move[T string | time.Time](date T, movements ...any) T {
 		}
 	}
 	if !flag {
-		return any(t).(T)
+		return date
 	}
 	// 使用自定义函数处理年月日的调整，特别是月份边界问题
 	if years != 0 || months != 0 || days != 0 {
