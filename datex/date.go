@@ -260,7 +260,7 @@ var once sync.Once
 func Compare(left string, operator string, right string) bool {
 	once.Do(func() {
 		compareHolder = syncx.NewHolder(func() *cachex.BaseCache[time.Time] {
-			return cachex.NewOnceCache[time.Time](cachex.OnceCacheOption{
+			return cachex.NewBaseCache[time.Time](cachex.OnceCacheOption{
 				Expire:           30 * time.Second,
 				CheckInterval:    0,
 				DefaultKeyExpire: 0,
