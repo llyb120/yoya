@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/llyb120/gotool/syncx"
+	"github.com/llyb120/gotool/internal/lockx"
 )
 
 // skipListNode 表示跳表中的一个节点
@@ -26,7 +26,7 @@ func newSkipListNode[T comparable](value T, level int) *skipListNode[T] {
 // 跳表是一种可以用来快速查找的数据结构，类似于平衡树
 // 它通过维护多层的链表，使得查找、插入和删除操作的平均时间复杂度为 O(log n)
 type SkipList[T comparable] struct {
-	mu       syncx.Lock
+	mu       lockx.Lock
 	header   *skipListNode[T]  // 头节点，不存储实际数据
 	level    int               // 当前跳表的最大层数
 	length   int               // 跳表中的元素数量

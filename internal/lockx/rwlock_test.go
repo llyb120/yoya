@@ -1,4 +1,4 @@
-package syncx
+package lockx
 
 import (
 	"sync"
@@ -9,6 +9,7 @@ import (
 
 // 测试写锁的可重入性
 func TestLock_WriteLockReentrant(t *testing.T) {
+
 	lock := &Lock{}
 
 	// 第一次获取写锁

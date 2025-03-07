@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/llyb120/gotool/syncx"
+	"github.com/llyb120/gotool/internal/lockx"
 )
 
 // OrderedMap 是一个协程安全的有序映射，按插入顺序维护键值对
 type OrderedMap[K comparable, V any] struct {
-	mu      syncx.Lock
+	mu      lockx.Lock
 	keys    []K
 	values  []V
 	indexes map[K]int

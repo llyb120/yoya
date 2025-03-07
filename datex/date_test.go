@@ -55,6 +55,27 @@ func TestMove(t *testing.T) {
 		wantErr    bool
 	}{
 		{
+			name:       "加一周",
+			dateStr:    "2024-01-01",
+			movements:  []any{1 * Week},
+			wantOutput: "2024-01-08",
+			wantErr:    false,
+		},
+		{
+			name:       "加一周后取本周第一天",
+			dateStr:    "2024-01-01",
+			movements:  []any{1 * Week, FirstDayOfWeek},
+			wantOutput: "2024-01-07",
+			wantErr:    false,
+		},
+		{
+			name:       "加一周后取中国周第一天",
+			dateStr:    "2025-03-07",
+			movements:  []any{1 * Week, FirstDayOfCNWeek},
+			wantOutput: "2025-03-10",
+			wantErr:    false,
+		},
+		{
 			name:       "加一年",
 			dateStr:    "2024-01-01",
 			movements:  []any{1 * Year},
@@ -178,7 +199,10 @@ func TestMove(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := Move(tt.dateStr, tt.movements...)
+			var got = tt.dateStr
+			var err error
+			got, err = Move(got, tt.movements...)
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Move() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -188,6 +212,7 @@ func TestMove(t *testing.T) {
 			}
 		})
 	}
+
 }
 
 // TestMoveEdgeCases 测试一些特殊边界情况
@@ -197,7 +222,7 @@ func TestMoveEdgeCases(t *testing.T) {
 
 	// 测试非常大的时间调整
 	t.Run("大数值调整", func(t *testing.T) {
-		got, err := Move("2024-01-01", 50*Year+60*Month)
+		got, err := Move("2024-01-01", 50*Year, 60*Month)
 		if err != nil {
 			t.Errorf("Move() error = %v", err)
 			return
@@ -276,6 +301,6 @@ func BenchmarkGuess(b *testing.B) {
 
 func BenchmarkMove(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		Move("2024-01-01", 1*Year+2*Month+3*Day)
+		Move("2024-01-01", 1*Year, 2*Month, 3*Day)
 	}
 }

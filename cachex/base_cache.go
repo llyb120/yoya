@@ -2,14 +2,15 @@ package cachex
 
 import (
 	"context"
-	"sync"
 	"time"
+
+	"github.com/llyb120/gotool/internal/lockx"
 )
 
 // 一次性缓存，超过多久即会销毁
 
-type OnceCache[T any] struct {
-	mu    sync.RWMutex
+type BaseCache[T any] struct {
+	mu    lockx.Lock
 	cache map[string]cacheItemWrapper[T]
 	opts  OnceCacheOption
 }
@@ -21,8 +22,8 @@ type OnceCacheOption struct {
 	Destroy          func()
 }
 
-func NewOnceCache[T any](opts OnceCacheOption) *OnceCache[T] {
-	cache := &OnceCache[T]{
+func NewBaseCache[T any](opts OnceCacheOption) *BaseCache[T] {
+	cache := &BaseCache[T]{
 		opts:  opts,
 		cache: make(map[string]cacheItemWrapper[T]),
 	}
@@ -30,12 +31,18 @@ func NewOnceCache[T any](opts OnceCacheOption) *OnceCache[T] {
 	return cache
 }
 
-func (c *OnceCache[T]) start() {
-	if c.opts.Destroy != nil {
+func (c *BaseCache[T]) start() {
+	if c.opts.Expire > 0 && c.opts.Destroy != nil {
 		defer c.opts.Destroy()
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), c.opts.Expire)
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if c.opts.Expire > 0 {
+		ctx, cancel = context.WithTimeout(context.Background(), c.opts.Expire)
+	} else {
+		ctx, cancel = context.WithCancel(context.Background())
+	}
 	defer cancel()
 
 	if c.opts.CheckInterval > 0 {
@@ -70,11 +77,11 @@ func (c *OnceCache[T]) start() {
 	<-ctx.Done()
 }
 
-func (c *OnceCache[T]) Set(key string, value T) {
+func (c *BaseCache[T]) Set(key string, value T) {
 	c.SetExpire(key, value, c.opts.DefaultKeyExpire)
 }
 
-func (c *OnceCache[T]) SetExpire(key string, value T, expire time.Duration) {
+func (c *BaseCache[T]) SetExpire(key string, value T, expire time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.cache[key] = cacheItemWrapper[T]{
@@ -84,7 +91,7 @@ func (c *OnceCache[T]) SetExpire(key string, value T, expire time.Duration) {
 	}
 }
 
-func (c *OnceCache[T]) Get(key string) (T, bool) {
+func (c *BaseCache[T]) Get(key string) (T, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	item, ok := c.cache[key]
@@ -94,23 +101,26 @@ func (c *OnceCache[T]) Get(key string) (T, bool) {
 	return item.value, true
 }
 
-func (c *OnceCache[T]) Del(key string) {
+func (c *BaseCache[T]) Del(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.cache, key)
 }
 
-func (c *OnceCache[T]) GetOrSetFunc(key string, fn func() T) T {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	item, ok := c.cache[key]
+func (c *BaseCache[T]) GetOrSetFunc(key string, fn func() T) T {
+	value, ok := c.Get(key)
 	if !ok {
-		value := fn()
+		if value, ok = c.Get(key); ok {
+			return value
+		}
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		value = fn()
 		c.cache[key] = cacheItemWrapper[T]{
 			value:  value,
 			expire: time.Now().Add(c.opts.DefaultKeyExpire),
 		}
 		return value
 	}
-	return item.value
+	return value
 }

@@ -3,12 +3,12 @@ package stlx
 import (
 	"runtime"
 
-	"github.com/llyb120/gotool/syncx"
+	"github.com/llyb120/gotool/internal/lockx"
 )
 
 // WeakMap 实现了一个键为弱引用的映射
 type WeakMap[K comparable, V any] struct {
-	mu   syncx.Lock
+	mu   lockx.Lock
 	data map[K]V
 }
 
