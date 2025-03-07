@@ -272,14 +272,14 @@ func TestCompare(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := Compare(tt.left, tt.operator, tt.right)
+			got := When(tt.left, tt.operator, tt.right)
 			if got != tt.want {
 				t.Errorf("Compare() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 
-	if Compare("2024-02-03 20:00", ">=", "2024-02-02") {
+	if When("2024-02-03 20:00", ">=", "2024-02-02") {
 		fmt.Println("a jian")
 	}
 }

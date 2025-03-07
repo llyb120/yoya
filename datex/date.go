@@ -186,6 +186,7 @@ func adjustMonthBoundary(t time.Time, years, months, days int) time.Time {
 
 func Move[T string | time.Time](date T, movements ...any) T {
 	// 使用Guess函数尝试解析日期
+	var flag bool
 	d, isString := any(date).(string)
 	var t time.Time
 	var err error
@@ -220,7 +221,12 @@ func Move[T string | time.Time](date T, movements ...any) T {
 			duration += int64(m)
 		case moveType:
 			mType = m
+		case bool:
+			flag = flag && m
 		}
+	}
+	if !flag {
+		return any(t).(T)
 	}
 	// 使用自定义函数处理年月日的调整，特别是月份边界问题
 	if years != 0 || months != 0 || days != 0 {
@@ -278,7 +284,7 @@ func Move[T string | time.Time](date T, movements ...any) T {
 var compareHolder *syncx.Holder[*cachex.BaseCache[time.Time]]
 var once sync.Once
 
-func Compare[L string | time.Time, R string | time.Time](left L, operator string, right R) bool {
+func When[L string | time.Time, R string | time.Time](left L, operator string, right R) bool {
 	once.Do(func() {
 		compareHolder = syncx.NewHolder(func() *cachex.BaseCache[time.Time] {
 			return cachex.NewBaseCache[time.Time](cachex.OnceCacheOption{
