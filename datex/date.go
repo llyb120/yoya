@@ -186,7 +186,7 @@ func adjustMonthBoundary(t time.Time, years, months, days int) time.Time {
 
 func Move[T string | time.Time](date T, movements ...any) T {
 	// 使用Guess函数尝试解析日期
-	var flag bool
+	var flag bool = true
 	d, isString := any(date).(string)
 	var t time.Time
 	var err error
