@@ -2,19 +2,19 @@ package syncx
 
 import "sync"
 
-type Holder[T any] struct {
+type Holder[K comparable, V any] struct {
 	mu    sync.RWMutex
-	mp    map[string]T
-	newFn func() T
+	mp    map[K]V
+	newFn func() V
 }
 
-func NewHolder[T any](fn func() T) *Holder[T] {
-	return &Holder[T]{newFn: fn, mp: make(map[string]T)}
+func NewHolder[K comparable, V any](fn func() V) *Holder[K, V] {
+	return &Holder[K, V]{newFn: fn, mp: make(map[K]V)}
 }
 
-func (h *Holder[T]) Get(key string) T {
+func (h *Holder[K, V]) Get(key K) V {
 	if h.newFn == nil {
-		var zero T
+		var zero V
 		return zero
 	}
 	h.mu.RLock()
@@ -27,13 +27,13 @@ func (h *Holder[T]) Get(key string) T {
 	return item
 }
 
-func (h *Holder[T]) Set(key string, value T) {
+func (h *Holder[K, V]) Set(key K, value V) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.mp[key] = value
 }
 
-func (h *Holder[T]) Del(key string) {
+func (h *Holder[K, V]) Del(key K) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	delete(h.mp, key)

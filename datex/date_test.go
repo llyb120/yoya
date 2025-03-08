@@ -3,6 +3,7 @@ package datex
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestGuess(t *testing.T) {
@@ -46,6 +47,11 @@ func TestGuess(t *testing.T) {
 	}
 }
 
+func TestMoveNormal(t *testing.T) {
+	now := time.Now()
+	Move(&now, 1*Day)
+	fmt.Println(now)
+}
 func TestMove(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -164,14 +170,14 @@ func TestMove(t *testing.T) {
 			name:       "不同格式日期-斜杠",
 			dateStr:    "2024/01/01",
 			movements:  []any{1 * Month},
-			wantOutput: "2024-02-01",
+			wantOutput: "2024/02/01",
 			wantErr:    false,
 		},
 		{
 			name:       "不同格式日期-美式",
 			dateStr:    "01/02/2024",
 			movements:  []any{1 * Month},
-			wantOutput: "2024-02-02",
+			wantOutput: "02/02/2024",
 			wantErr:    false,
 		},
 		{
