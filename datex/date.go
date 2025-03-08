@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/petermattis/goid"
 )
 
 // 定义时间单位常量，使用特定的数值便于计算
@@ -147,7 +145,7 @@ func Move[T string | *string | time.Time | *time.Time](date T, movements ...any)
 		}
 		isPointer = true
 	}
-	
+
 	var t time.Time
 	var err error
 	var format string
@@ -251,7 +249,7 @@ func Move[T string | *string | time.Time | *time.Time](date T, movements ...any)
 }
 
 func When[L string | time.Time, R string | time.Time](left L, operator string, right R) bool {
-	cache := compareHolder.Get(goid.Get())
+	cache := compareHolder.Get()
 
 	str, isStr := any(left).(string)
 	var leftTime time.Time
