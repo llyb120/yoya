@@ -1,9 +1,5 @@
 package stlx
 
-import (
-	"encoding/json"
-)
-
 type void struct{}
 
 // OrderedSet 是一个协程安全的有序集合，按插入顺序维护元素
@@ -20,7 +16,7 @@ func NewSet[T comparable]() *OrderedSet[T] {
 
 // Add 添加元素到集合
 func (os *OrderedSet[T]) Add(element T) {
-	os.mp.Set(element, struct{}{})
+	os.add(element)
 }
 
 // Del 从集合中移除元素
@@ -46,37 +42,12 @@ func (os *OrderedSet[T]) Clear() {
 
 // Vals 返回所有元素的切片
 func (os *OrderedSet[T]) Vals() []T {
-	return os.mp.Keys()
+	os.rlock()
+	defer os.runlock()
+	return os.vals()
 }
 
 // Each 遍历集合中的所有元素
 func (os *OrderedSet[T]) For(fn func(element T) bool) {
-	os.mp.For(func(key T, value void) bool {
-		return fn(key)
-	})
-}
-
-// MarshalJSON 实现json.Marshaler接口
-func (os *OrderedSet[T]) MarshalJSON() ([]byte, error) {
-	os.mp.mu.Lock()
-	defer os.mp.mu.Unlock()
-	return json.Marshal(os.mp.keys)
-}
-
-// UnmarshalJSON 实现json.Unmarshaler接口
-func (os *OrderedSet[T]) UnmarshalJSON(data []byte) error {
-	os.mp.mu.Lock()
-	defer os.mp.mu.Unlock()
-
-	os.Clear()
-
-	var elements []T
-	if err := json.Unmarshal(data, &elements); err != nil {
-		return err
-	}
-	for _, element := range elements {
-		os.mp.Set(element, struct{}{})
-	}
-
-	return nil
+	os.foreach(fn)
 }

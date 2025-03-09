@@ -11,7 +11,7 @@ type Map[K comparable, V any] interface {
 	For(fn func(key K, value V) bool)
 }
 
-type Collection[T comparable] interface {
+type Collection[T any] interface {
 	Add(item T)
 	Del(item T)
 	Len() int
@@ -26,4 +26,28 @@ type Set[T comparable] Collection[T]
 type List[T comparable] interface {
 	Collection[T]
 	Set(pos int, value T)
+}
+
+type innerLock interface {
+	lock()
+	unlock()
+	rlock()
+	runlock()
+}
+
+type jsonMap[K comparable, V any] interface {
+	Map[K, V]
+	innerLock
+	set(key K, value V)
+	clear()
+	foreach(fn func(key K, value V) bool)
+}
+
+type jsonCollection[T any] interface {
+	Collection[T]
+	innerLock
+	clear()
+	add(item T)
+	vals() []T
+	foreach(fn func(item T) bool)
 }

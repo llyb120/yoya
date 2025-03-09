@@ -1,14 +1,12 @@
 package stlx
 
 import (
-	"runtime"
-
-	"github.com/llyb120/gotool/internal/lockx"
+	"sync"
 )
 
 // WeakMap 实现了一个键为弱引用的映射
 type WeakMap[K comparable, V any] struct {
-	mu   lockx.Lock
+	mu   sync.RWMutex
 	data map[K]V
 }
 
@@ -25,17 +23,7 @@ func (wm *WeakMap[K, V]) Set(key K, value V) {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 
-	// 创建一个包装器来避免直接引用 wm
-	wrapper := &keyWrapper[K, V]{key: key, weakMap: wm}
-	wm.data[key] = value
-
-	// 为包装器设置终结器
-	runtime.SetFinalizer(wrapper, func(w *keyWrapper[K, V]) {
-		w.weakMap.mu.Lock()
-		delete(w.weakMap.data, w.key)
-		w.weakMap.mu.Unlock()
-	})
-
+	wm.set(key, value)
 }
 
 // keyWrapper 用于避免在终结器中直接引用 WeakMap
@@ -78,18 +66,14 @@ func (wm *WeakMap[K, V]) Clear() {
 	wm.mu.Lock()
 	defer wm.mu.Unlock()
 
-	wm.data = make(map[K]V)
+	wm.clear()
 }
 
 func (wm *WeakMap[K, V]) For(fn func(key K, value V) bool) {
 	wm.mu.RLock()
 	defer wm.mu.RUnlock()
 
-	for key, value := range wm.data {
-		if !fn(key, value) {
-			break
-		}
-	}
+	wm.foreach(fn)
 }
 
 func (wm *WeakMap[K, V]) Keys() []K {

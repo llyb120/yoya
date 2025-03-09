@@ -2,15 +2,14 @@ package cachex
 
 import (
 	"context"
+	"sync"
 	"time"
-
-	"github.com/llyb120/gotool/internal/lockx"
 )
 
 // 一次性缓存，超过多久即会销毁
 
 type BaseCache[K comparable, V any] struct {
-	mu    lockx.Lock
+	mu    sync.RWMutex
 	cache map[K]cacheItemWrapper[V]
 	opts  OnceCacheOption
 }

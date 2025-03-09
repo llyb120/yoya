@@ -2,9 +2,8 @@ package stlx
 
 import (
 	"math/rand"
+	"sync"
 	"time"
-
-	"github.com/llyb120/gotool/internal/lockx"
 )
 
 const (
@@ -33,7 +32,7 @@ func newSkipListEntryNode[K comparable, V any](key K, value V, level int) *skipL
 // 跳表是一种可以用来快速查找的数据结构，类似于平衡树
 // 它通过维护多层的链表，使得查找、插入和删除操作的平均时间复杂度为 O(log n)
 type SkipMap[K comparable, V any] struct {
-	mu       lockx.Lock
+	mu       sync.RWMutex
 	header   *skipListEntryNode[K, V] // 头节点，不存储实际数据
 	level    int                      // 当前跳表的最大层数
 	length   int                      // 跳表中的元素数量
@@ -72,49 +71,7 @@ func (sl *SkipMap[K, V]) Set(key K, value V) {
 	sl.mu.Lock()
 	defer sl.mu.Unlock()
 
-	// 用于记录每一层需要更新的节点
-	update := make([]*skipListEntryNode[K, V], maxLevel)
-	current := sl.header
-
-	// 从最高层开始查找
-	for i := sl.level - 1; i >= 0; i-- {
-		// 在当前层查找最后一个小于 key 的节点
-		for current.forward[i] != nil && sl.less(current.forward[i].key, key) {
-			current = current.forward[i]
-		}
-		update[i] = current
-	}
-
-	// 移动到第0层的下一个节点
-	current = current.forward[0]
-
-	// 如果找到了键，则更新值
-	if current != nil && current.key == key {
-		current.value = value
-		return
-	}
-
-	// 生成一个随机层数
-	newLevel := sl.randomLevel()
-
-	// 如果新层数大于当前层数，则更新头节点的 forward 指针
-	if newLevel > sl.level {
-		for i := sl.level; i < newLevel; i++ {
-			update[i] = sl.header
-		}
-		sl.level = newLevel
-	}
-
-	// 创建新节点
-	newNode := newSkipListEntryNode(key, value, newLevel)
-
-	// 更新所有受影响的节点的 forward 指针
-	for i := 0; i < newLevel; i++ {
-		newNode.forward[i] = update[i].forward[i]
-		update[i].forward[i] = newNode
-	}
-
-	sl.length++
+	sl.set(key, value)
 }
 
 // Get 获取键对应的值
@@ -198,9 +155,7 @@ func (sl *SkipMap[K, V]) Clear() {
 	sl.mu.Lock()
 	defer sl.mu.Unlock()
 
-	sl.header = newSkipListEntryNode[K, V](*new(K), *new(V), maxLevel)
-	sl.level = 1
-	sl.length = 0
+	sl.clear()
 }
 
 // Keys 返回跳表中的所有键，按顺序排列
@@ -241,12 +196,5 @@ func (sl *SkipMap[K, V]) For(fn func(key K, value V) bool) {
 	sl.mu.RLock()
 	defer sl.mu.RUnlock()
 
-	current := sl.header.forward[0]
-
-	for current != nil {
-		if !fn(current.key, current.value) {
-			break
-		}
-		current = current.forward[0]
-	}
+	sl.foreach(fn)
 }

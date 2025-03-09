@@ -5,9 +5,11 @@ import (
 	"reflect"
 	"sync"
 	"time"
+
+	"github.com/llyb120/gotool/errx"
 )
 
-type Future[T any] struct {
+type future[T any] struct {
 	timeout time.Duration
 	result  T
 	err     error
@@ -15,7 +17,7 @@ type Future[T any] struct {
 	done    bool
 }
 
-func (f *Future[T]) Get() (T, error) {
+func (f *future[T]) Get() (T, error) {
 	if f.done {
 		return f.result, f.err
 	}
@@ -41,13 +43,18 @@ func (f *Future[T]) Get() (T, error) {
 	return f.result, nil
 }
 
-func Async[T any](fn any, timeout time.Duration) func(...any) *Future[T] {
+var futureHolder sync.Map
+
+func Async[T any](fn any, timeout time.Duration) func(...any) *T {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
 
-	return func(args ...any) *Future[T] {
-		future := &Future[T]{timeout: timeout}
+	return func(args ...any) *T {
+		future := &future[any]{timeout: timeout}
+		var zero T
+		ptrResult := &zero
 		future.wg.Add(1)
+		futureHolder.Store(ptrResult, future)
 
 		go func() {
 			defer func() {
@@ -77,13 +84,67 @@ func Async[T any](fn any, timeout time.Duration) func(...any) *Future[T] {
 					val := r.Interface()
 					if err, ok := val.(error); ok {
 						future.err = err
-					} else {
-						future.result = val.(T)
+					} else if value, ok := val.(T); ok {
+						*ptrResult = value
+						future.result = value
 					}
 				}
 			}
 		}()
 
-		return future
+		return ptrResult
 	}
+}
+
+func HasError(objs ...any) error {
+	errs := hasError(objs...)
+	if errs != nil && errs.HasError() {
+		return errs
+	}
+	return nil
+}
+
+func IsFailed(objs ...any) bool {
+	errs := hasError(objs...)
+	if errs != nil && !errs.HasError() {
+		return true
+	}
+	return false
+}
+
+func hasError(objs ...any) *errx.MultiError {
+	var errs = &errx.MultiError{}
+	if len(objs) > 1 {
+		var g Group
+		for _, obj := range objs {
+			obj := obj
+			g.Go(func() error {
+				f, ok := futureHolder.Load(obj)
+				if !ok {
+					return nil
+				}
+				_, err := f.(*future[any]).Get()
+				if err != nil {
+					errs.Add(err)
+				}
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			errs.Add(err)
+		}
+	} else if len(objs) == 1 {
+		f, ok := futureHolder.Load(objs[0])
+		if !ok {
+			return nil
+		}
+		_, err := f.(*future[any]).Get()
+		if err != nil {
+			errs.Add(err)
+		}
+	}
+	if errs.HasError() {
+		return errs
+	}
+	return nil
 }
