@@ -3,7 +3,7 @@ package stlx
 import "runtime"
 
 func (wm *WeakMap[K, V]) clear() {
-	wm.data = make(map[K]V)
+	wm.data = make(map[any]V)
 }
 
 func (wm *WeakMap[K, V]) set(key K, value V) {
@@ -21,7 +21,7 @@ func (wm *WeakMap[K, V]) set(key K, value V) {
 
 func (wm *WeakMap[K, V]) foreach(fn func(key K, value V) bool) {
 	for key, value := range wm.data {
-		if !fn(key, value) {
+		if !fn(key.(K), value) {
 			break
 		}
 	}

@@ -1,6 +1,6 @@
 package stlx
 
-type Map[K comparable, V any] interface {
+type Map[K any, V any] interface {
 	Set(key K, value V)
 	Get(key K) (V, bool)
 	Del(key K) V
@@ -35,7 +35,7 @@ type innerLock interface {
 	runlock()
 }
 
-type jsonMap[K comparable, V any] interface {
+type jsonMap[K any, V any] interface {
 	Map[K, V]
 	innerLock
 	set(key K, value V)

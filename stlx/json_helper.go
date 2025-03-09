@@ -6,7 +6,7 @@ import (
 	"fmt"
 )
 
-func marshalMap[K comparable, V any](mp jsonMap[K, V]) ([]byte, error) {
+func marshalMap[K any, V any](mp jsonMap[K, V]) ([]byte, error) {
 	mp.lock()
 	defer mp.unlock()
 
@@ -46,7 +46,7 @@ func marshalMap[K comparable, V any](mp jsonMap[K, V]) ([]byte, error) {
 }
 
 // UnmarshalJSON 实现json.Unmarshaler接口
-func unmarshalMap[K comparable, V any](mp jsonMap[K, V], data []byte) error {
+func unmarshalMap[K any, V any](mp jsonMap[K, V], data []byte) error {
 	mp.lock()
 	defer mp.unlock()
 

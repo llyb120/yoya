@@ -5,15 +5,15 @@ import (
 )
 
 // WeakMap 实现了一个键为弱引用的映射
-type WeakMap[K comparable, V any] struct {
+type WeakMap[K any, V any] struct {
 	mu   sync.RWMutex
-	data map[K]V
+	data map[any]V
 }
 
 // NewWeakMap 创建一个新的 WeakMap
-func NewWeakMap[K comparable, V any]() *WeakMap[K, V] {
+func NewWeakMap[K any, V any]() *WeakMap[K, V] {
 	return &WeakMap[K, V]{
-		data: make(map[K]V),
+		data: make(map[any]V),
 	}
 }
 
@@ -27,7 +27,7 @@ func (wm *WeakMap[K, V]) Set(key K, value V) {
 }
 
 // keyWrapper 用于避免在终结器中直接引用 WeakMap
-type keyWrapper[K comparable, V any] struct {
+type keyWrapper[K any, V any] struct {
 	key     K
 	weakMap *WeakMap[K, V]
 }
@@ -82,7 +82,7 @@ func (wm *WeakMap[K, V]) Keys() []K {
 
 	keys := make([]K, 0, len(wm.data))
 	for key := range wm.data {
-		keys = append(keys, key)
+		keys = append(keys, key.(K))
 	}
 	return keys
 }
