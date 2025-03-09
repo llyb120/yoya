@@ -3,8 +3,8 @@ package datex
 import (
 	"time"
 
-	"github.com/llyb120/gotool/cachex"
-	"github.com/llyb120/gotool/syncx"
+	"github.com/llyb120/yoya/cachex"
+	"github.com/llyb120/yoya/syncx"
 )
 
 var compareHolder *syncx.Holder[*cachex.BaseCache[string, time.Time]]
