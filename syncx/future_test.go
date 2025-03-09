@@ -12,24 +12,48 @@ func TestAsyncBasic(t *testing.T) {
 	noArgFn := func() int {
 		return 42
 	}
-	result := Async[int](noArgFn, 5*time.Second)()
-	if err := HasError(result); err != nil {
+	asyncFn := Async[int](noArgFn, 5*time.Second)
+
+	result := asyncFn()
+	if err := Await(result); err != nil {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}
 	if *result != 42 {
 		t.Errorf("期望结果为42，但得到: %v", result)
 	}
+
 	// 测试有参数的函数
 	addFn := func(a, b int) int {
 		return a + b
 	}
 	result = Async[int](addFn, 5*time.Second)(10, 20)
-	if err := HasError(result); err != nil {
+	if err := Await(result); err != nil {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}
 	if *result != 30 {
 		t.Errorf("期望结果为30，但得到: %v", result)
 	}
+
+	// 测试多个返回
+	fn0 := func() int {
+		time.Sleep(1 * time.Second)
+		return 1
+	}
+	fn1 := func() int {
+		time.Sleep(1 * time.Second)
+		return 2
+	}
+	fn2 := func() int {
+		panic("failed")
+		return 0
+	}
+	r0 := Async[int](fn0)()
+	r1 := Async[int](fn1)()
+	r2 := Async[int](fn2)()
+	if err := Await(r0, r1, r2); err == nil {
+		t.Errorf("期望有错误，但得到: %v", err)
+	}
+
 }
 
 // 测试长时间运行的函数
@@ -39,7 +63,7 @@ func TestAsyncLongRunning(t *testing.T) {
 		return 99
 	}
 	result := Async[int](slowFn, 5*time.Second)()
-	if err := HasError(result); err != nil {
+	if err := Await(result); err != nil {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}
 	if *result != 99 {
@@ -57,7 +81,7 @@ func TestAsyncWithError(t *testing.T) {
 		return Result{0, errors.New("测试错误")}
 	}
 	result := Async[Result](errorFn, 5*time.Second)()
-	if err := HasError(result); err != nil {
+	if err := Await(result); err != nil {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}
 	if result.Err == nil || result.Err.Error() != "测试错误" {

@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
-
-	"github.com/llyb120/gotool/errx"
 )
 
 type future[T any] struct {
-	timeout time.Duration
-	result  T
-	err     error
-	wg      sync.WaitGroup
-	done    bool
+	timeout  time.Duration
+	exprtime time.Time
+	result   T
+	err      error
+	wg       sync.WaitGroup
+	done     atomic.Bool
 }
 
 func (f *future[T]) Get() (T, error) {
-	if f.done {
+	if f.done.Load() {
 		return f.result, f.err
 	}
 
@@ -30,14 +30,22 @@ func (f *future[T]) Get() (T, error) {
 	}()
 
 	// 等待结果或超时
-	select {
-	case <-done:
+	if f.timeout > 0 {
+		select {
+		case <-done:
+			if f.err != nil {
+				return f.result, f.err
+			}
+		case <-time.After(f.timeout):
+			var zero T
+			return zero, fmt.Errorf("future get timeout after %v", f.timeout)
+		}
+	} else {
+		// 没有超时，等待结果
+		<-done
 		if f.err != nil {
 			return f.result, f.err
 		}
-	case <-time.After(f.timeout):
-		var zero T
-		return zero, fmt.Errorf("future get timeout after %v", f.timeout)
 	}
 
 	return f.result, nil
@@ -45,12 +53,18 @@ func (f *future[T]) Get() (T, error) {
 
 var futureHolder sync.Map
 
-func Async[T any](fn any, timeout time.Duration) func(...any) *T {
+func Async[T any](fn any, timeout ...time.Duration) func(...any) *T {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
-
+	var t time.Duration
+	if len(timeout) > 0 {
+		t = timeout[0]
+	}
+	if t <= 0 {
+		t = 0
+	}
 	return func(args ...any) *T {
-		future := &future[any]{timeout: timeout}
+		future := &future[any]{timeout: t, exprtime: time.Now().Add(2 * t)}
 		var zero T
 		ptrResult := &zero
 		future.wg.Add(1)
@@ -58,11 +72,11 @@ func Async[T any](fn any, timeout time.Duration) func(...any) *T {
 
 		go func() {
 			defer func() {
-				future.wg.Done()
-				future.done = true
 				if r := recover(); r != nil {
 					future.err = fmt.Errorf("future panic: %v", r)
 				}
+				future.wg.Done()
+				future.done.Store(true)
 			}()
 
 			in := make([]reflect.Value, len(args))
@@ -71,6 +85,10 @@ func Async[T any](fn any, timeout time.Duration) func(...any) *T {
 			}
 
 			// 类型检查
+			if len(args) != ft.NumIn() {
+				future.err = fmt.Errorf("参数数量不匹配")
+				return
+			}
 			for i := 0; i < ft.NumIn(); i++ {
 				if i >= len(in) || !in[i].Type().AssignableTo(ft.In(i)) {
 					future.err = fmt.Errorf("参数类型不匹配")
@@ -96,55 +114,55 @@ func Async[T any](fn any, timeout time.Duration) func(...any) *T {
 	}
 }
 
-func HasError(objs ...any) error {
-	errs := hasError(objs...)
-	if errs != nil && errs.HasError() {
-		return errs
-	}
-	return nil
+func Await(objs ...any) error {
+	return hasError(objs...)
 }
 
-func IsFailed(objs ...any) bool {
-	errs := hasError(objs...)
-	if errs != nil && !errs.HasError() {
-		return true
-	}
-	return false
-}
-
-func hasError(objs ...any) *errx.MultiError {
-	var errs = &errx.MultiError{}
+func hasError(objs ...any) error {
 	if len(objs) > 1 {
 		var g Group
 		for _, obj := range objs {
 			obj := obj
 			g.Go(func() error {
-				f, ok := futureHolder.Load(obj)
+				f, ok := futureHolder.LoadAndDelete(obj)
 				if !ok {
 					return nil
 				}
 				_, err := f.(*future[any]).Get()
-				if err != nil {
-					errs.Add(err)
-				}
-				return nil
+				return err
 			})
 		}
 		if err := g.Wait(); err != nil {
-			errs.Add(err)
+			return err
 		}
 	} else if len(objs) == 1 {
-		f, ok := futureHolder.Load(objs[0])
+		f, ok := futureHolder.LoadAndDelete(objs[0])
 		if !ok {
 			return nil
 		}
 		_, err := f.(*future[any]).Get()
-		if err != nil {
-			errs.Add(err)
-		}
-	}
-	if errs.HasError() {
-		return errs
+		return err
 	}
 	return nil
+}
+
+// 清理因失败而过期的future
+func clearFutures() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		var deletedKeys []any
+		now := time.Now()
+		futureHolder.Range(func(key, value any) bool {
+			future := value.(*future[any])
+			// 如果超时2倍以上且没有清理，则清理
+			if future.exprtime.Before(now) && future.done.Load() {
+				deletedKeys = append(deletedKeys, key)
+			}
+			return true
+		})
+		for _, key := range deletedKeys {
+			futureHolder.Delete(key)
+		}
+	}
 }
