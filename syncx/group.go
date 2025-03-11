@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"sync"
+	"time"
 )
 
 type Group struct {
@@ -52,10 +53,38 @@ func (g *Group) append(err error) {
 	g.eg.Append(err)
 }
 
-func (g *Group) Wait() error {
-	g.wg.Wait()
-	if g.eg != nil && len(g.eg.errors) > 0 {
-		return g.eg
+func (g *Group) Wait(timeout ...time.Duration) error {
+	if len(timeout) > 0 {
+		return g.waitWithTimeout(timeout[0])
 	}
-	return nil
+	return g.waitWithTimeout(0)
+}
+
+func (g *Group) waitWithTimeout(timeout time.Duration) error {
+	if timeout <= 0 {
+		// 无超时，直接等待
+		g.wg.Wait()
+		if g.eg != nil && len(g.eg.errors) > 0 {
+			return g.eg
+		}
+		return nil
+	}
+
+	// 创建一个带超时的channel
+	done := make(chan struct{})
+	go func() {
+		g.wg.Wait()
+		close(done)
+	}()
+
+	// 等待结果或超时
+	select {
+	case <-done:
+		if g.eg != nil && len(g.eg.errors) > 0 {
+			return g.eg
+		}
+		return nil
+	case <-time.After(timeout):
+		return fmt.Errorf("等待超时，超过 %v", timeout)
+	}
 }

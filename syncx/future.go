@@ -1,6 +1,7 @@
 package syncx
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -9,7 +10,6 @@ import (
 )
 
 type future[T any] struct {
-	timeout  time.Duration
 	exprtime time.Time
 	result   T
 	err      error
@@ -17,32 +17,37 @@ type future[T any] struct {
 	done     atomic.Bool
 }
 
-func (f *future[T]) Get() (T, error) {
+func (f *future[T]) Get(timeout time.Duration) (T, error) {
 	if f.done.Load() {
 		return f.result, f.err
 	}
 
-	// 创建一个带超时的channel
-	done := make(chan struct{})
-	go func() {
-		f.wg.Wait()
-		close(done)
-	}()
-
 	// 等待结果或超时
-	if f.timeout > 0 {
+	if timeout > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		// 创建一个完成信号通道
+		done := make(chan struct{})
+
+		go func() {
+			f.wg.Wait()
+			close(done)
+		}()
+
+		// 等待结果或超时
 		select {
 		case <-done:
-			if f.err != nil {
-				return f.result, f.err
-			}
-		case <-time.After(f.timeout):
+			// 任务已完成，返回结果
+			return f.result, f.err
+		case <-ctx.Done():
+			// 超时了，返回零值和超时错误
 			var zero T
-			return zero, fmt.Errorf("future get timeout after %v", f.timeout)
+			return zero, fmt.Errorf("获取结果超时: %w", ctx.Err())
 		}
 	} else {
 		// 没有超时，等待结果
-		<-done
+		f.wg.Wait()
 		if f.err != nil {
 			return f.result, f.err
 		}
@@ -53,18 +58,11 @@ func (f *future[T]) Get() (T, error) {
 
 var futureHolder sync.Map
 
-func Async[T any](fn any, timeout ...time.Duration) func(...any) *T {
+func Async[T any](fn any) func(...any) *T {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
-	var t time.Duration
-	if len(timeout) > 0 {
-		t = timeout[0]
-	}
-	if t <= 0 {
-		t = 0
-	}
 	return func(args ...any) *T {
-		future := &future[any]{timeout: t, exprtime: time.Now().Add(2 * t)}
+		future := &future[any]{exprtime: time.Now().Add(2 * time.Minute)}
 		var zero T
 		ptrResult := &zero
 		future.wg.Add(1)
@@ -115,10 +113,16 @@ func Async[T any](fn any, timeout ...time.Duration) func(...any) *T {
 }
 
 func Await(objs ...any) error {
-	return hasError(objs...)
-}
+	var timeout time.Duration = 0
 
-func hasError(objs ...any) error {
+	// 检查最后一个参数是否为超时时间
+	if len(objs) > 0 {
+		var ok bool
+		if timeout, ok = objs[len(objs)-1].(time.Duration); ok {
+			objs = objs[:len(objs)-1]
+		}
+	}
+
 	if len(objs) > 1 {
 		var g Group
 		for _, obj := range objs {
@@ -128,19 +132,18 @@ func hasError(objs ...any) error {
 				if !ok {
 					return nil
 				}
-				_, err := f.(*future[any]).Get()
+				_, err := f.(*future[any]).Get(0)
 				return err
 			})
 		}
-		if err := g.Wait(); err != nil {
-			return err
-		}
+		return g.Wait(timeout)
+
 	} else if len(objs) == 1 {
 		f, ok := futureHolder.LoadAndDelete(objs[0])
 		if !ok {
 			return nil
 		}
-		_, err := f.(*future[any]).Get()
+		_, err := f.(*future[any]).Get(timeout)
 		return err
 	}
 	return nil
