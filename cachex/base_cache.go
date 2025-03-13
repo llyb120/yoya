@@ -9,9 +9,10 @@ import (
 // 一次性缓存，超过多久即会销毁
 
 type BaseCache[K comparable, V any] struct {
-	mu    sync.RWMutex
-	cache map[K]cacheItemWrapper[V]
-	opts  OnceCacheOption
+	mu     sync.RWMutex
+	cache  map[K]cacheItemWrapper[V]
+	opts   OnceCacheOption
+	cancel context.CancelFunc
 }
 
 type OnceCacheOption struct {
@@ -36,13 +37,12 @@ func (c *BaseCache[K, V]) start() {
 	}
 
 	var ctx context.Context
-	var cancel context.CancelFunc
 	if c.opts.Expire > 0 {
-		ctx, cancel = context.WithTimeout(context.Background(), c.opts.Expire)
+		ctx, c.cancel = context.WithTimeout(context.Background(), c.opts.Expire)
 	} else {
-		ctx, cancel = context.WithCancel(context.Background())
+		ctx, c.cancel = context.WithCancel(context.Background())
 	}
-	defer cancel()
+	defer c.cancel()
 
 	if c.opts.CheckInterval > 0 {
 		// 小于等于0的时候永不过期
@@ -93,6 +93,23 @@ func (c *BaseCache[K, V]) SetExpire(key K, value V, expire time.Duration) {
 func (c *BaseCache[K, V]) Get(key K) (V, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	return c.get(key)
+}
+
+func (c *BaseCache[K, V]) Gets(keys ...K) []V {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	values := make([]V, len(keys))
+	for i, key := range keys {
+		value, ok := c.get(key)
+		if ok {
+			values[i] = value
+		}
+	}
+	return values
+}
+
+func (c *BaseCache[K, V]) get(key K) (V, bool) {
 	item, ok := c.cache[key]
 	if !ok {
 		return item.value, false
@@ -106,14 +123,31 @@ func (c *BaseCache[K, V]) Del(key K) {
 	delete(c.cache, key)
 }
 
+func (c *BaseCache[K, V]) Clear() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cache = make(map[K]cacheItemWrapper[V])
+}
+
+func (c *BaseCache[K, V]) Destroy() {
+	c.mu.Lock()
+	c.cancel()
+	c.mu.Unlock()
+
+	// 解锁，防止出问题
+	if c.opts.Destroy != nil {
+		c.opts.Destroy()
+	}
+}
+
 func (c *BaseCache[K, V]) GetOrSetFunc(key K, fn func() V) V {
 	value, ok := c.Get(key)
 	if !ok {
-		if value, ok = c.Get(key); ok {
-			return value
-		}
 		c.mu.Lock()
 		defer c.mu.Unlock()
+		if value, ok = c.get(key); ok {
+			return value
+		}
 		value = fn()
 		c.cache[key] = cacheItemWrapper[V]{
 			value:  value,

@@ -1,28 +1,27 @@
 package stlx
 
 func (om *OrderedMap[K, V]) clear() {
-
 	om.keys = nil
-	om.values = nil
+	om.mp = make(map[K]V)
 	om.indexes = make(map[K]int)
 }
 
 func (om *OrderedMap[K, V]) set(key K, value V) {
-	if index, exists := om.indexes[key]; exists {
+	if _, exists := om.mp[key]; exists {
 		// 如果键已存在，只更新值
-		om.values[index] = value
+		om.mp[key] = value
 		return
 	}
 
 	// 添加到映射
 	om.keys = append(om.keys, key)
-	om.values = append(om.values, value)
+	om.mp[key] = value
 	om.indexes[key] = len(om.keys) - 1
 }
 
 func (om *OrderedMap[K, V]) foreach(fn func(key K, value V) bool) {
-	for i, key := range om.keys {
-		if !fn(key, om.values[i]) {
+	for _, key := range om.keys {
+		if !fn(key, om.mp[key]) {
 			break
 		}
 	}

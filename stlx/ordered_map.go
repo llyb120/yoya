@@ -8,13 +8,14 @@ import (
 type OrderedMap[K comparable, V any] struct {
 	mu      sync.RWMutex
 	keys    []K
-	values  []V
+	mp      map[K]V
 	indexes map[K]int
 }
 
 // NewOrderedMap 创建一个新的有序映射
 func NewMap[K comparable, V any]() *OrderedMap[K, V] {
 	return &OrderedMap[K, V]{
+		mp:      make(map[K]V),
 		indexes: make(map[K]int),
 	}
 }
@@ -32,12 +33,8 @@ func (om *OrderedMap[K, V]) Get(key K) (V, bool) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
-	if index, exists := om.indexes[key]; exists {
-		return om.values[index], true
-	}
-
-	var zero V
-	return zero, false
+	val, exists := om.mp[key]
+	return val, exists
 }
 
 // Del 删除键值对
@@ -45,15 +42,15 @@ func (om *OrderedMap[K, V]) Del(key K) V {
 	om.mu.Lock()
 	defer om.mu.Unlock()
 
-	pos, exists := om.indexes[key]
+	index, exists := om.indexes[key]
 	if !exists {
 		var zero V
 		return zero
 	} else {
+		val := om.mp[key]
+		delete(om.mp, key)
 		delete(om.indexes, key)
-		val := om.values[pos]
-		om.keys = append(om.keys[:pos], om.keys[pos+1:]...)
-		om.values = append(om.values[:pos], om.values[pos+1:]...)
+		om.keys = append(om.keys[:index], om.keys[index+1:]...)
 		return val
 	}
 }
@@ -80,8 +77,10 @@ func (om *OrderedMap[K, V]) Vals() []V {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
-	values := make([]V, len(om.values))
-	copy(values, om.values)
+	values := make([]V, len(om.keys))
+	for i, key := range om.keys {
+		values[i] = om.mp[key]
+	}
 	return values
 }
 
@@ -98,8 +97,8 @@ func (om *OrderedMap[K, V]) For(fn func(key K, value V) bool) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
-	for i, key := range om.keys {
-		if !fn(key, om.values[i]) {
+	for _, key := range om.keys {
+		if !fn(key, om.mp[key]) {
 			break
 		}
 	}
