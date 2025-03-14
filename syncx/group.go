@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/llyb120/yoya/errx"
+	"github.com/petermattis/goid"
 )
 
 type Group struct {
@@ -14,8 +15,11 @@ type Group struct {
 	eg errx.MultiError
 }
 
+var globalGroupHolder = sync.Map{}
+
 func (g *Group) Go(fn func() error) {
 	g.wg.Add(1)
+	var parentGoid = goid.Get()
 	go func() {
 		defer g.wg.Done()
 		defer func() {
@@ -25,6 +29,11 @@ func (g *Group) Go(fn func() error) {
 				g.eg.Add(fmt.Errorf("panic: %v\nstack: %s", r, stack[:stackLen]))
 			}
 		}()
+		// 存储协程id
+		localGoid := goid.Get()
+		globalGroupHolder.Store(localGoid, parentGoid)
+		defer globalGroupHolder.Delete(localGoid)
+		// 调用
 		err := fn()
 		if err != nil {
 			g.eg.Add(err)

@@ -17,15 +17,29 @@ func NewHolder[V any](fn func() V) *Holder[V] {
 }
 
 func (h *Holder[V]) Get() V {
-	if h.newFn == nil {
-		var zero V
-		return zero
-	}
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	goid := goid.Get()
 	if item, ok := h.mp[goid]; ok {
 		return item
+	} else {
+		// 如果本协程没有，尝试去父协程找
+		targetGoid := goid
+		for {
+			parentGoid, ok := globalGroupHolder.Load(targetGoid)
+			if !ok {
+				break
+			}
+			targetGoid = parentGoid.(int64)
+			// 如果可以在父协程找到
+			if item, ok := h.mp[targetGoid]; ok {
+				return item
+			}
+		}
+	}
+	if h.newFn == nil {
+		var zero V
+		return zero
 	}
 	item := h.newFn()
 	h.mp[goid] = item
