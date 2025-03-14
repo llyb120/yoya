@@ -8,19 +8,21 @@ import (
 
 // 定义时间单位常量，使用特定的数值便于计算
 type moveType string
-type dayUnit int64
-type weekUnit int64
-type monthUnit int64
-type yearUnit int64
+
+// type dayUnit int64
+// type weekUnit int64
+// type monthUnit int64
+// type yearUnit int64
+type YmdUnit int64
 
 const (
 	Second time.Duration = time.Second
 	Minute time.Duration = time.Minute
 	Hour   time.Duration = time.Hour
-	Day    dayUnit       = 1
-	Week   weekUnit      = 1
-	Month  monthUnit     = 1
-	Year   yearUnit      = 1
+	Day    YmdUnit       = 10000
+	Week   YmdUnit       = 70000
+	Month  YmdUnit       = 10000 * 10000
+	Year   YmdUnit       = 10000 * 10000 * 10000
 
 	FirstDayOfMonth  moveType = "FirstDayOfMonth"
 	LastDayOfMonth   moveType = "LastDayOfMonth"
@@ -167,14 +169,10 @@ func Move[T string | *string | time.Time | *time.Time](date T, movements ...any)
 	for _, m := range movements {
 		// 提取各个时间单位的调整值
 		switch m := any(m).(type) {
-		case yearUnit:
-			years += int(m)
-		case monthUnit:
-			months += int(m)
-		case dayUnit:
-			days += int(m)
-		case weekUnit:
-			days += int(m) * 7
+		case YmdUnit:
+			years += int(m / Year)
+			months += int((m % Year) / Month)
+			days += int((m % Month) / Day)
 		case time.Duration:
 			duration += int64(m)
 		case moveType:

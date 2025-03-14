@@ -257,6 +257,11 @@ func TestMoveEdgeCases(t *testing.T) {
 			t.Errorf("Move() result too short = %v", got)
 		}
 	})
+
+	months := []int{1, 2, 3}
+	for _, month := range months {
+		Move("2024-01-01", YmdUnit(month)*Day)
+	}
 }
 
 func TestCompare(t *testing.T) {
