@@ -2,6 +2,7 @@ package syncx
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -185,4 +186,35 @@ func TestAsyncDifferentReturnTypes(t *testing.T) {
 	if err != nil || structFuture.Name != "张三" || structFuture.Age != 30 {
 		t.Errorf("结构体测试失败: %v, %v", structFuture, err)
 	}
+}
+
+func TestAsync00(t *testing.T) {
+	fn := func() {
+		time.Sleep(1 * time.Second)
+		fmt.Println("hello")
+	}
+	var r = Async00(fn)()
+	if err := Await(r); err != nil {
+		t.Errorf("期望无错误，但得到: %v", err)
+	}
+
+	fn1 := func(a int) float64 {
+		time.Sleep(1 * time.Second)
+		return float64(a)
+	}
+	var r1 = Async11(fn1)(1)
+	if err := Await(r1); err != nil {
+		t.Errorf("期望无错误，但得到: %v", err)
+	}
+	fmt.Println(*r1)
+
+	fn2 := func(a int, b int) (int, error) {
+		time.Sleep(1 * time.Second)
+		return a + b, nil
+	}
+	var r2 = Async22(fn2)(1, 2)
+	if err := Await(r2); err != nil {
+		t.Errorf("期望无错误，但得到: %v", err)
+	}
+	fmt.Println(*r2)
 }
