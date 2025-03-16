@@ -6,7 +6,15 @@ import (
 )
 
 func TestOrderedSet(t *testing.T) {
-	set := NewSet[string]()
+	set0 := NewSet[string]("123", "444")
+	set := NewSet[string]([]string{"123", "444"})
+	set = NewSet[string](set0)
+	jsonData, err := json.Marshal(set)
+	if err != nil {
+		t.Errorf("MarshalJSON failed: %v", err)
+	}
+	t.Logf("JSON data: %s", jsonData)
+	set.Clear()
 
 	// 测试添加元素
 	set.Add("a")
@@ -30,7 +38,7 @@ func TestOrderedSet(t *testing.T) {
 	}
 
 	// 测试序列化
-	jsonData, err := json.Marshal(set)
+	jsonData, err = json.Marshal(set)
 	if err != nil {
 		t.Errorf("MarshalJSON failed: %v", err)
 	}

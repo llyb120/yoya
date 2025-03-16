@@ -193,7 +193,7 @@ func TestAsync00(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		fmt.Println("hello")
 	}
-	var r = Async00(fn)()
+	var r = Async_0_0(fn)()
 	if err := Await(r); err != nil {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestAsync00(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		return float64(a)
 	}
-	var r1 = Async11(fn1)(1)
+	var r1 = Async_1_1(fn1)(1)
 	if err := Await(r1); err != nil {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestAsync00(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		return a + b, nil
 	}
-	var r2 = Async22(fn2)(1, 2)
+	var r2 = Async_2_2(fn2)(1, 2)
 	if err := Await(r2); err != nil {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}

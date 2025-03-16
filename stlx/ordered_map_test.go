@@ -34,3 +34,17 @@ func TestOrderedMap(t *testing.T) {
 	})
 
 }
+
+func TestOrderedMap2(t *testing.T) {
+	om := NewMap[string, int](map[string]int{"a": 1, "b": 2, "c": 3})
+	om.For(func(key string, value int) bool {
+		t.Logf("key: %s, value: %d", key, value)
+		return true
+	})
+
+	om2 := NewMap[string, int](om)
+	om2.For(func(key string, value int) bool {
+		t.Logf("key: %s, value: %d", key, value)
+		return true
+	})
+}

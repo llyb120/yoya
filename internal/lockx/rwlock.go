@@ -1,7 +1,6 @@
 package lockx
 
 import (
-	"runtime"
 	"sync"
 	"sync/atomic"
 
@@ -13,6 +12,10 @@ import (
 // 支持读锁升级为写锁
 type Lock struct {
 	mu sync.Mutex
+
+	// 条件变量，用于等待锁状态变化
+	writerCond *sync.Cond
+	readerCond *sync.Cond
 
 	// 写锁持有者的 goroutine ID，如果没有写锁持有者则为 0
 	writer int64
@@ -33,6 +36,8 @@ type Lock struct {
 func (l *Lock) init() {
 	l.once.Do(func() {
 		l.readers = make(map[int64]int)
+		l.writerCond = sync.NewCond(&l.mu)
+		l.readerCond = sync.NewCond(&l.mu)
 	})
 }
 
@@ -63,10 +68,7 @@ func (l *Lock) Lock() {
 
 		// 等待所有其他读者释放锁
 		for atomic.LoadInt32(&l.readerCount) > 0 && atomic.LoadInt64(&l.writer) == 0 {
-			l.mu.Unlock()
-			// 短暂让出 CPU，避免忙等
-			runtime.Gosched()
-			l.mu.Lock()
+			l.writerCond.Wait() // 使用条件变量等待
 		}
 
 		// 获取写锁并设置写锁持有者
@@ -84,10 +86,7 @@ func (l *Lock) Lock() {
 
 	// 等待条件: 没有活跃的读锁且没有其他写锁持有者
 	for atomic.LoadInt32(&l.readerCount) > 0 || atomic.LoadInt64(&l.writer) != 0 {
-		l.mu.Unlock()
-		// 短暂让出 CPU，避免忙等
-		runtime.Gosched()
-		l.mu.Lock()
+		l.writerCond.Wait() // 使用条件变量等待
 	}
 
 	// 获取写锁
@@ -128,12 +127,18 @@ func (l *Lock) Unlock() {
 		l.readers[gid] = actualReadCount
 		atomic.AddInt32(&l.readerCount, int32(actualReadCount))
 		atomic.StoreInt64(&l.writer, 0)
+		// 通知等待的读者和写者
+		l.readerCond.Broadcast()
+		l.writerCond.Signal()
 		l.mu.Unlock()
 		return
 	}
 
 	// 完全释放写锁
 	atomic.StoreInt64(&l.writer, 0)
+	// 通知等待的读者和写者
+	l.readerCond.Broadcast()
+	l.writerCond.Signal()
 	l.mu.Unlock()
 }
 
@@ -162,9 +167,7 @@ func (l *Lock) RLock() {
 
 	// 如果有等待的写锁，读锁要等待（防止写锁饥饿）
 	for atomic.LoadInt32(&l.waitingWriters) > 0 || atomic.LoadInt64(&l.writer) != 0 {
-		l.mu.Unlock()
-		runtime.Gosched()
-		l.mu.Lock()
+		l.readerCond.Wait() // 使用条件变量等待
 	}
 
 	// 获取读锁
@@ -200,6 +203,10 @@ func (l *Lock) RUnlock() {
 
 	// 完全释放读锁
 	delete(l.readers, gid)
+	// 如果没有读锁了，通知等待的写者
+	if atomic.LoadInt32(&l.readerCount) == 0 {
+		l.writerCond.Broadcast() // 使用Broadcast而不是Signal确保所有等待的写者都被通知
+	}
 	l.mu.Unlock()
 }
 

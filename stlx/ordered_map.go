@@ -13,11 +13,25 @@ type OrderedMap[K comparable, V any] struct {
 }
 
 // NewOrderedMap 创建一个新的有序映射
-func NewMap[K comparable, V any]() *OrderedMap[K, V] {
-	return &OrderedMap[K, V]{
+func NewMap[K comparable, V any](args ...any) *OrderedMap[K, V] {
+	om := &OrderedMap[K, V]{
 		mp:      make(map[K]V),
 		indexes: make(map[K]int),
 	}
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case map[K]V:
+			for k, v := range v {
+				om.set(k, v)
+			}
+		case Map[K, V]:
+			v.For(func(key K, value V) bool {
+				om.set(key, value)
+				return true
+			})
+		}
+	}
+	return om
 }
 
 // Set 添加或更新键值对

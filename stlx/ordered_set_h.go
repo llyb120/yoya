@@ -6,6 +6,12 @@ func (os *OrderedSet[T]) add(element T) {
 	os.mp.set(element, struct{}{})
 }
 
+func (os *OrderedSet[T]) addAll(elements []T) {
+	for _, element := range elements {
+		os.add(element)
+	}
+}
+
 func (os *OrderedSet[T]) clear() {
 	os.mp.clear()
 }

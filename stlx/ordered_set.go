@@ -8,10 +8,24 @@ type OrderedSet[T comparable] struct {
 }
 
 // NewOrderedSet 创建一个新的有序集合
-func NewSet[T comparable]() *OrderedSet[T] {
-	return &OrderedSet[T]{
+func NewSet[T comparable](args ...any) *OrderedSet[T] {
+	set := &OrderedSet[T]{
 		mp: NewMap[T, void](),
 	}
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case []T:
+			set.addAll(v)
+		case T:
+			set.Add(v)
+		case Collection[T]:
+			v.For(func(item T) bool {
+				set.add(item)
+				return true
+			})
+		}
+	}
+	return set
 }
 
 // Add 添加元素到集合
