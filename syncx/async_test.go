@@ -202,11 +202,12 @@ func TestAsync00(t *testing.T) {
 		time.Sleep(1 * time.Second)
 		return float64(a)
 	}
-	var r1 = Async_1_1(fn1)(1)
-	if err := Await(r1); err != nil {
+	var r1 = Async_1_1(fn1)
+	var r11 = r1(1)
+	if err := Await(r11); err != nil {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}
-	fmt.Println(*r1)
+	fmt.Println(*r11)
 
 	fn2 := func(a int, b int) (int, error) {
 		time.Sleep(1 * time.Second)

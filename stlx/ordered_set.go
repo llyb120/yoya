@@ -28,6 +28,12 @@ func NewSet[T comparable](args ...any) *OrderedSet[T] {
 	return set
 }
 
+func NewSyncSet[T comparable](args ...any) *OrderedSet[T] {
+	set := NewSet[T](args...)
+	set.mp.mu.sync = true
+	return set
+}
+
 // Add 添加元素到集合
 func (os *OrderedSet[T]) Add(element T) {
 	os.add(element)

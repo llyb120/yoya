@@ -1,9 +1,7 @@
 package stlx
 
-import "sync"
-
 type MultiMap[K comparable, V any] struct {
-	mu sync.RWMutex
+	mu lock
 	*OrderedMap[K, []V]
 }
 
@@ -11,6 +9,12 @@ func NewMultiMap[K comparable, V any]() *MultiMap[K, V] {
 	return &MultiMap[K, V]{
 		OrderedMap: NewMap[K, []V](),
 	}
+}
+
+func NewSyncMultiMap[K comparable, V any]() *MultiMap[K, V] {
+	mm := NewMultiMap[K, V]()
+	mm.mu.sync = true
+	return mm
 }
 
 func (m *MultiMap[K, V]) Set(key K, value V) {

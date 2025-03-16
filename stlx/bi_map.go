@@ -1,9 +1,7 @@
 package stlx
 
-import "sync"
-
 type BiMap[K comparable, V comparable] struct {
-	mu sync.RWMutex
+	mu lock
 	*OrderedMap[K, V]
 	fMap *OrderedMap[V, K]
 }
@@ -13,6 +11,12 @@ func NewBiMap[K comparable, V comparable]() *BiMap[K, V] {
 		OrderedMap: NewMap[K, V](),
 		fMap:       NewMap[V, K](),
 	}
+}
+
+func NewSyncBiMap[K comparable, V comparable]() *BiMap[K, V] {
+	bm := NewBiMap[K, V]()
+	bm.mu.sync = true
+	return bm
 }
 
 func (m *BiMap[K, V]) Set(key K, value V) {

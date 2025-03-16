@@ -2,7 +2,6 @@ package stlx
 
 import (
 	"math/rand"
-	"sync"
 	"time"
 )
 
@@ -24,7 +23,7 @@ func newSkipListNode[T comparable](value T, level int) *skipListNode[T] {
 // 跳表是一种可以用来快速查找的数据结构，类似于平衡树
 // 它通过维护多层的链表，使得查找、插入和删除操作的平均时间复杂度为 O(log n)
 type SkipList[T comparable] struct {
-	mu       sync.RWMutex
+	mu       lock
 	header   *skipListNode[T]  // 头节点，不存储实际数据
 	level    int               // 当前跳表的最大层数
 	length   int               // 跳表中的元素数量
@@ -45,6 +44,12 @@ func NewSkipList[T comparable](less func(a, b T) bool) *SkipList[T] {
 		less:     less,
 		randSeed: rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
+	return sl
+}
+
+func NewSyncSkipList[T comparable](less func(a, b T) bool) *SkipList[T] {
+	sl := NewSkipList[T](less)
+	sl.mu.sync = true
 	return sl
 }
 

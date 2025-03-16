@@ -62,7 +62,7 @@ func Async[T any](fn any) func(...any) *T {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
 	return func(args ...any) *T {
-		future := &future[any]{exprtime: time.Now().Add(2 * time.Minute)}
+		future := &future[any]{exprtime: time.Now().Add(5 * time.Minute)}
 		var zero T
 		ptrResult := &zero
 		future.wg.Add(1)
@@ -151,6 +151,14 @@ func Await(objs ...any) error {
 
 // 清理因失败而过期的future
 func clearFutures() {
+	defer func() {
+		if r := recover(); r != nil {
+			// 30s 后重新运行
+			time.AfterFunc(30*time.Second, func() {
+				go clearFutures()
+			})
+		}
+	}()
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {

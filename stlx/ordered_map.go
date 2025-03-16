@@ -1,12 +1,8 @@
 package stlx
 
-import (
-	"sync"
-)
-
 // OrderedMap 是一个协程安全的有序映射，按插入顺序维护键值对
 type OrderedMap[K comparable, V any] struct {
-	mu      sync.RWMutex
+	mu      lock
 	keys    []K
 	mp      map[K]V
 	indexes map[K]int
@@ -31,6 +27,12 @@ func NewMap[K comparable, V any](args ...any) *OrderedMap[K, V] {
 			})
 		}
 	}
+	return om
+}
+
+func NewSyncMap[K comparable, V any](args ...any) *OrderedMap[K, V] {
+	om := NewMap[K, V](args...)
+	om.mu.sync = true
 	return om
 }
 
