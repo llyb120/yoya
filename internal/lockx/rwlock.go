@@ -30,26 +30,44 @@ type Lock struct {
 	// 等待写锁的 goroutines 数量
 	waitingWriters int32
 
-	once sync.Once
+	// 使用sync.Once确保初始化只执行一次
+	initialized uint32
 }
 
-func (l *Lock) init() {
-	l.once.Do(func() {
+// 使用原子操作替代sync.Once，减少锁竞争
+func (l *Lock) lazyInit() {
+	if atomic.LoadUint32(&l.initialized) == 1 {
+		return
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.initialized == 0 {
 		l.readers = make(map[int64]int)
 		l.writerCond = sync.NewCond(&l.mu)
 		l.readerCond = sync.NewCond(&l.mu)
-	})
+		atomic.StoreUint32(&l.initialized, 1)
+	}
 }
 
 // Lock 获取写锁
 // 如果当前 goroutine 已经持有写锁，则增加重入计数
 // 如果当前 goroutine 持有读锁，则升级为写锁
 func (l *Lock) Lock() {
-	l.init()
+	l.lazyInit()
 	gid := goid.Get()
 
+	// 快速路径：检查当前goroutine是否已持有写锁
+	if atomic.LoadInt64(&l.writer) == gid {
+		l.mu.Lock()
+		l.writerCount++
+		l.mu.Unlock()
+		return
+	}
+
 	l.mu.Lock()
-	// 如果当前 goroutine 已经持有写锁，增加重入计数
+	// 再次检查，因为在获取互斥锁的过程中可能状态已变化
 	if atomic.LoadInt64(&l.writer) == gid {
 		l.writerCount++
 		l.mu.Unlock()
@@ -100,13 +118,20 @@ func (l *Lock) Lock() {
 // 如果是重入的写锁，则减少重入计数
 // 如果是从读锁升级的写锁，则在完全释放后恢复读锁
 func (l *Lock) Unlock() {
-	l.init()
+	if atomic.LoadUint32(&l.initialized) == 0 {
+		return // 未初始化，不需要解锁
+	}
+
 	gid := goid.Get()
 
-	l.mu.Lock()
-	// 检查当前 goroutine 是否持有写锁
+	// 快速检查是否持有写锁
 	if atomic.LoadInt64(&l.writer) != gid {
-		// 不是写锁持有者，不能释放写锁
+		return // 不是写锁持有者，不能释放写锁
+	}
+
+	l.mu.Lock()
+	// 再次检查，因为在获取互斥锁的过程中可能状态已变化
+	if atomic.LoadInt64(&l.writer) != gid {
 		l.mu.Unlock()
 		return
 	}
@@ -136,9 +161,15 @@ func (l *Lock) Unlock() {
 
 	// 完全释放写锁
 	atomic.StoreInt64(&l.writer, 0)
-	// 通知等待的读者和写者
-	l.readerCond.Broadcast()
-	l.writerCond.Signal()
+
+	// 优化通知策略：如果有等待的写者，优先通知写者
+	if atomic.LoadInt32(&l.waitingWriters) > 0 {
+		l.writerCond.Signal()
+	} else {
+		// 否则通知所有读者
+		l.readerCond.Broadcast()
+	}
+
 	l.mu.Unlock()
 }
 
@@ -146,11 +177,19 @@ func (l *Lock) Unlock() {
 // 如果当前 goroutine 已经持有写锁，则不实际获取读锁，只增加读锁计数
 // 如果当前 goroutine 已经持有读锁，则增加重入计数
 func (l *Lock) RLock() {
-	l.init()
+	l.lazyInit()
 	gid := goid.Get()
 
+	// 快速路径：检查当前goroutine是否持有写锁
+	if atomic.LoadInt64(&l.writer) == gid {
+		l.mu.Lock()
+		l.readers[gid]++
+		l.mu.Unlock()
+		return
+	}
+
 	l.mu.Lock()
-	// 如果当前 goroutine 持有写锁，则不需要实际获取读锁
+	// 再次检查，因为在获取互斥锁的过程中可能状态已变化
 	if atomic.LoadInt64(&l.writer) == gid {
 		l.readers[gid]++
 		l.mu.Unlock()
@@ -179,7 +218,10 @@ func (l *Lock) RLock() {
 // RUnlock 释放读锁
 // 如果是重入的读锁，则减少重入计数
 func (l *Lock) RUnlock() {
-	l.init()
+	if atomic.LoadUint32(&l.initialized) == 0 {
+		return // 未初始化，不需要解锁
+	}
+
 	gid := goid.Get()
 
 	l.mu.Lock()
@@ -203,22 +245,32 @@ func (l *Lock) RUnlock() {
 
 	// 完全释放读锁
 	delete(l.readers, gid)
+
 	// 如果没有读锁了，通知等待的写者
-	if atomic.LoadInt32(&l.readerCount) == 0 {
-		l.writerCond.Broadcast() // 使用Broadcast而不是Signal确保所有等待的写者都被通知
+	if atomic.LoadInt32(&l.readerCount) == 0 && atomic.LoadInt32(&l.waitingWriters) > 0 {
+		l.writerCond.Signal() // 只通知一个写者，避免惊群效应
 	}
+
 	l.mu.Unlock()
 }
 
 // TryLock 尝试获取写锁，如果获取失败则返回 false
 func (l *Lock) TryLock() bool {
-	l.init()
+	l.lazyInit()
 	gid := goid.Get()
+
+	// 快速路径：检查当前goroutine是否已持有写锁
+	if atomic.LoadInt64(&l.writer) == gid {
+		l.mu.Lock()
+		l.writerCount++
+		l.mu.Unlock()
+		return true
+	}
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// 如果当前 goroutine 已经持有写锁，增加重入计数
+	// 再次检查，因为在获取互斥锁的过程中可能状态已变化
 	if atomic.LoadInt64(&l.writer) == gid {
 		l.writerCount++
 		return true
@@ -258,13 +310,21 @@ func (l *Lock) TryLock() bool {
 
 // TryRLock 尝试获取读锁，如果获取失败则返回 false
 func (l *Lock) TryRLock() bool {
-	l.init()
+	l.lazyInit()
 	gid := goid.Get()
+
+	// 快速路径：检查当前goroutine是否持有写锁
+	if atomic.LoadInt64(&l.writer) == gid {
+		l.mu.Lock()
+		l.readers[gid]++
+		l.mu.Unlock()
+		return true
+	}
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// 如果当前 goroutine 持有写锁，则不需要实际获取读锁
+	// 再次检查，因为在获取互斥锁的过程中可能状态已变化
 	if atomic.LoadInt64(&l.writer) == gid {
 		l.readers[gid]++
 		return true

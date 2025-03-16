@@ -438,3 +438,28 @@ func TestLock_MixedUsage(t *testing.T) {
 		t.Fatal("锁未被完全释放")
 	}
 }
+
+func TestLock_LockReentrant(t *testing.T) {
+	lock := Lock{}
+	go func() {
+		lock.RLock()
+		time.Sleep(1000 * time.Millisecond)
+		lock.Lock()
+		println("1 get lock")
+		time.Sleep(1000 * time.Millisecond)
+		lock.Unlock()
+		println("1 unlock")
+		lock.RUnlock()
+	}()
+
+	time.Sleep(50 * time.Millisecond)
+
+	go func() {
+		lock.Lock()
+		time.Sleep(100 * time.Millisecond)
+		println("2 get lock")
+		lock.Unlock()
+	}()
+
+	time.Sleep(3000 * time.Millisecond)
+}
