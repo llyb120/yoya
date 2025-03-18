@@ -7,7 +7,7 @@ type ArrayList[T comparable] struct {
 
 func NewList[T comparable](args ...any) *ArrayList[T] {
 	list := &ArrayList[T]{
-		list: make([]T, 16),
+		list: make([]T, 0, 16),
 	}
 	for _, arg := range args {
 		switch v := arg.(type) {
