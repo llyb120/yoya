@@ -13,7 +13,6 @@ type Map[K any, V any] interface {
 
 type Collection[T any] interface {
 	Add(item T)
-	Del(item T)
 	Len() int
 	Clear()
 	Has(item T) bool
@@ -21,7 +20,10 @@ type Collection[T any] interface {
 	For(fn func(item T) bool)
 }
 
-type Set[T comparable] Collection[T]
+type Set[T comparable] interface {
+	Collection[T]
+	Del(item T)
+}
 
 type List[T comparable] interface {
 	Collection[T]
