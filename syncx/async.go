@@ -153,8 +153,35 @@ func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 				for i, r := range result {
 					val := r.Interface()
 					if i == 0 {
-						ptrRef.Elem().Set(r)
-						future.result = val
+						// 创建一个outType类型的新实例
+						newInstance := reflect.New(outType).Elem()
+
+						// 尝试从r中提取值并设置到newInstance中
+						if r.Kind() == reflect.Interface {
+							// 如果r是接口类型，获取其底层值
+							underlyingValue := r.Elem()
+							if underlyingValue.Type().AssignableTo(outType) {
+								newInstance.Set(underlyingValue)
+							} else if underlyingValue.CanConvert(outType) {
+								newInstance.Set(underlyingValue.Convert(outType))
+							} else {
+								future.err = fmt.Errorf("无法将类型 %v 转换为 %v", underlyingValue.Type(), outType)
+								return
+							}
+						} else if r.Type().AssignableTo(outType) {
+							// 直接赋值
+							newInstance.Set(r)
+						} else if r.CanConvert(outType) {
+							// 尝试类型转换
+							newInstance.Set(r.Convert(outType))
+						} else {
+							future.err = fmt.Errorf("无法将类型 %v 转换为 %v", r.Type(), outType)
+							return
+						}
+
+						// 设置到ptrRef和future.result
+						ptrRef.Elem().Set(newInstance)
+						future.result = newInstance.Interface()
 					}
 					if i == 1 {
 						if err, ok := val.(error); ok || err == nil {
