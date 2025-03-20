@@ -153,8 +153,20 @@ func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 				for i, r := range result {
 					val := r.Interface()
 					if i == 0 {
-						ptrRef.Elem().Set(r)
-						future.result = val
+						// 检查r的类型是否可以转换为outType
+						if r.Type().AssignableTo(outType) {
+							ptrRef.Elem().Set(r)
+							future.result = val
+						} else {
+							// 尝试进行类型转换
+							if r.CanConvert(outType) {
+								convertedValue := r.Convert(outType)
+								ptrRef.Elem().Set(convertedValue)
+								future.result = convertedValue.Interface()
+							} else {
+								future.err = fmt.Errorf("返回值类型 %v 不能转换为目标类型 %v", r.Type(), outType)
+							}
+						}
 					}
 					if i == 1 {
 						if err, ok := val.(error); ok || err == nil {
