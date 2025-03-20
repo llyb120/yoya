@@ -112,6 +112,65 @@ func Async[T any](fn any) func(...any) *T {
 	}
 }
 
+func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
+	ft := fn.Type()
+	return func(args ...any) any {
+		future := &future[any]{exprtime: time.Now().Add(5 * time.Minute)}
+		// var zero = reflect.New(outType).Interface()
+		ptrRef := reflect.New(outType)
+		ptrResult := ptrRef.Interface()
+		future.wg.Add(1)
+		futureHolder.Store(ptrResult, future)
+
+		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					future.err = fmt.Errorf("future panic: %v", r)
+				}
+				future.wg.Done()
+				future.done.Store(true)
+			}()
+
+			in := make([]reflect.Value, len(args))
+			for i, arg := range args {
+				in[i] = reflect.ValueOf(arg)
+			}
+
+			// 类型检查
+			if len(args) != ft.NumIn() {
+				future.err = fmt.Errorf("参数数量不匹配")
+				return
+			}
+			for i := 0; i < ft.NumIn(); i++ {
+				if i >= len(in) || !in[i].Type().AssignableTo(ft.In(i)) {
+					future.err = fmt.Errorf("参数类型不匹配")
+					return
+				}
+			}
+
+			result := fn.Call(in)
+			if len(result) > 0 {
+				for i, r := range result {
+					val := r.Interface()
+					if i == 0 {
+						ptrRef.Elem().Set(r)
+						future.result = val
+					}
+					if i == 1 {
+						if err, ok := val.(error); ok || err == nil {
+							future.err = err
+						} else {
+							future.err = fmt.Errorf("返回值类型不匹配")
+						}
+					}
+				}
+			}
+		}()
+
+		return ptrResult
+	}
+}
+
 func Await(objs ...any) error {
 	var timeout time.Duration = 0
 

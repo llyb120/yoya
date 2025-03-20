@@ -3,6 +3,7 @@ package syncx
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -218,4 +219,20 @@ func TestAsync00(t *testing.T) {
 		t.Errorf("期望无错误，但得到: %v", err)
 	}
 	fmt.Println(*r2)
+}
+
+func foo(a int) (int, error) {
+	return a + 1, nil
+}
+
+func TestAsyncReflect(t *testing.T) {
+	// fn := reflect.MakeFunc(reflect.TypeOf((*func(int) (int, error))(nil)), func(args []reflect.Value) []reflect.Value {
+	// 	return []reflect.Value{reflect.ValueOf(args[0].Int() + 1), reflect.ValueOf(nil)}
+	// })
+	var r = AsyncReflect(reflect.ValueOf(foo), reflect.TypeOf(int(0)))
+	r1 := r(1).(*int)
+	if err := Await(r1); err != nil {
+		t.Errorf("期望无错误，但得到: %v", err)
+	}
+	fmt.Println(*r1)
 }
