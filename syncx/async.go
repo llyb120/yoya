@@ -153,6 +153,10 @@ func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 				for i, r := range result {
 					val := r.Interface()
 					if i == 0 {
+						if val == nil {
+							future.result = nil
+							continue
+						}
 						// 创建一个outType类型的新实例
 						newInstance := reflect.New(outType).Elem()
 
