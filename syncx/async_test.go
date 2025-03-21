@@ -222,6 +222,7 @@ func TestAsync00(t *testing.T) {
 }
 
 func foo(a int) (int, error) {
+	panic("test")
 	return a + 1, nil
 }
 

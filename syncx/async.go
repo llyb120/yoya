@@ -61,10 +61,10 @@ var futureHolder sync.Map
 func Async[T any](fn any) func(...any) *T {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
-	return func(args ...any) *T {
+	return func(args ...any) (ptrResult *T) {
 		future := &future[any]{exprtime: time.Now().Add(5 * time.Minute)}
 		var zero T
-		ptrResult := &zero
+		ptrResult = &zero
 		future.wg.Add(1)
 		futureHolder.Store(ptrResult, future)
 
@@ -114,11 +114,11 @@ func Async[T any](fn any) func(...any) *T {
 
 func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 	ft := fn.Type()
-	return func(args ...any) any {
+	return func(args ...any) (ptrResult any) {
 		future := &future[any]{exprtime: time.Now().Add(5 * time.Minute)}
 		// var zero = reflect.New(outType).Interface()
 		ptrRef := reflect.New(outType)
-		ptrResult := ptrRef.Interface()
+		ptrResult = ptrRef.Interface()
 		future.wg.Add(1)
 		futureHolder.Store(ptrResult, future)
 
