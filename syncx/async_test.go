@@ -237,3 +237,42 @@ func TestAsyncReflect(t *testing.T) {
 	}
 	fmt.Println(*r1)
 }
+
+func TestEndAsync(t *testing.T) {
+	defer ResetAsync()
+
+	fn := func() {
+		time.Sleep(1 * time.Second)
+		fmt.Println("hello")
+	}
+	var r = Async_0_0(fn)()
+
+	fn1 := func(a int) float64 {
+		time.Sleep(1 * time.Second)
+		return float64(a)
+	}
+	var r1 = Async_1_1(fn1)
+	var r11 = r1(1)
+
+	fn2 := func(a int, b int) (int, error) {
+		time.Sleep(1 * time.Second)
+		return a + b, nil
+	}
+	var r2 = Async_2_2(fn2)(1, 2)
+
+	var r3 *float64
+	var g Group
+	g.Go(func() error {
+		r3 = r1(2)
+		return nil
+	})
+	g.Wait()
+
+	if err := Await(); err != nil {
+		t.Errorf("期望无错误，但得到: %v", err)
+	}
+	// 等待20s
+	time.Sleep(1 * time.Second)
+
+	fmt.Println(*r, *r11, *r2, *r3)
+}

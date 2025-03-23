@@ -8,22 +8,22 @@ import (
 
 // 一次性缓存，超过多久即会销毁
 
-type BaseCache[K comparable, V any] struct {
+type baseCache[K comparable, V any] struct {
 	mu     sync.RWMutex
 	cache  map[K]cacheItemWrapper[V]
-	opts   OnceCacheOption
+	opts   CacheOption
 	cancel context.CancelFunc
 }
 
-type OnceCacheOption struct {
+type CacheOption struct {
 	Expire           time.Duration
 	DefaultKeyExpire time.Duration
 	CheckInterval    time.Duration
 	Destroy          func()
 }
 
-func NewBaseCache[K comparable, V any](opts OnceCacheOption) *BaseCache[K, V] {
-	cache := &BaseCache[K, V]{
+func NewBaseCache[K comparable, V any](opts CacheOption) *baseCache[K, V] {
+	cache := &baseCache[K, V]{
 		opts:  opts,
 		cache: make(map[K]cacheItemWrapper[V]),
 	}
@@ -31,7 +31,7 @@ func NewBaseCache[K comparable, V any](opts OnceCacheOption) *BaseCache[K, V] {
 	return cache
 }
 
-func (c *BaseCache[K, V]) start() {
+func (c *baseCache[K, V]) start() {
 	if c.opts.Expire > 0 && c.opts.Destroy != nil {
 		defer c.opts.Destroy()
 	}
@@ -76,11 +76,11 @@ func (c *BaseCache[K, V]) start() {
 	<-ctx.Done()
 }
 
-func (c *BaseCache[K, V]) Set(key K, value V) {
+func (c *baseCache[K, V]) Set(key K, value V) {
 	c.SetExpire(key, value, c.opts.DefaultKeyExpire)
 }
 
-func (c *BaseCache[K, V]) SetExpire(key K, value V, expire time.Duration) {
+func (c *baseCache[K, V]) SetExpire(key K, value V, expire time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.cache[key] = cacheItemWrapper[V]{
@@ -90,13 +90,13 @@ func (c *BaseCache[K, V]) SetExpire(key K, value V, expire time.Duration) {
 	}
 }
 
-func (c *BaseCache[K, V]) Get(key K) (V, bool) {
+func (c *baseCache[K, V]) Get(key K) (V, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.get(key)
 }
 
-func (c *BaseCache[K, V]) Gets(keys ...K) []V {
+func (c *baseCache[K, V]) Gets(keys ...K) []V {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	values := make([]V, len(keys))
@@ -109,7 +109,7 @@ func (c *BaseCache[K, V]) Gets(keys ...K) []V {
 	return values
 }
 
-func (c *BaseCache[K, V]) get(key K) (V, bool) {
+func (c *baseCache[K, V]) get(key K) (V, bool) {
 	item, ok := c.cache[key]
 	if !ok {
 		return item.value, false
@@ -117,19 +117,19 @@ func (c *BaseCache[K, V]) get(key K) (V, bool) {
 	return item.value, true
 }
 
-func (c *BaseCache[K, V]) Del(key K) {
+func (c *baseCache[K, V]) Del(key K) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.cache, key)
 }
 
-func (c *BaseCache[K, V]) Clear() {
+func (c *baseCache[K, V]) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.cache = make(map[K]cacheItemWrapper[V])
 }
 
-func (c *BaseCache[K, V]) Destroy() {
+func (c *baseCache[K, V]) Destroy() {
 	c.mu.Lock()
 	c.cancel()
 	c.mu.Unlock()
@@ -140,7 +140,7 @@ func (c *BaseCache[K, V]) Destroy() {
 	}
 }
 
-func (c *BaseCache[K, V]) GetOrSetFunc(key K, fn func() V) V {
+func (c *baseCache[K, V]) GetOrSetFunc(key K, fn func() V) V {
 	value, ok := c.Get(key)
 	if !ok {
 		c.mu.Lock()

@@ -7,11 +7,11 @@ import (
 	"github.com/llyb120/yoya/syncx"
 )
 
-var compareHolder *syncx.Holder[*cachex.BaseCache[string, time.Time]]
+var compareHolder syncx.Holder[cachex.Cache[string, time.Time]]
 
 func init() {
-	compareHolder = syncx.NewHolder[*cachex.BaseCache[string, time.Time]](func() *cachex.BaseCache[string, time.Time] {
-		return cachex.NewBaseCache[string, time.Time](cachex.OnceCacheOption{
+	compareHolder.InitFunc = func() cachex.Cache[string, time.Time] {
+		return cachex.NewBaseCache[string, time.Time](cachex.CacheOption{
 			Expire:           30 * time.Second,
 			CheckInterval:    0,
 			DefaultKeyExpire: 0,
@@ -20,5 +20,5 @@ func init() {
 				compareHolder.Del()
 			},
 		})
-	})
+	}
 }

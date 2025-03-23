@@ -4,15 +4,19 @@ type iterable[T any] interface {
 	[]T | *[]T
 }
 
-func Map[T any, R any](arr []T, fn func(T, int) R) []R {
-	result := make([]R, len(arr))
-	for i, v := range arr {
-		result[i] = fn(v, i)
+func Map[T any, R any](arr []T, fn func(T) (R, bool)) []R {
+	result := make([]R, 0, len(arr))
+	for _, v := range arr {
+		r, ok := fn(v)
+		if !ok {
+			continue
+		}
+		result = append(result, r)
 	}
 	return result
 }
 
-func Filter[T any, K iterable[T]](arr K, fn func(T, int) bool) K {
+func Filter[T any, K iterable[T], M func(T) bool](arr K, fn M) K {
 	var result []T
 	var _arr []T
 	var isPtr bool
@@ -23,9 +27,17 @@ func Filter[T any, K iterable[T]](arr K, fn func(T, int) bool) K {
 		_arr = *any(arr).(*[]T)
 		isPtr = true
 	}
+	result = make([]T, 0, len(_arr))
 	for i, v := range _arr {
-		if fn(v, i) {
-			result = append(result, v)
+		switch fn := any(fn).(type) {
+		case func(T) bool:
+			if fn(v) {
+				result = append(result, v)
+			}
+		case func(T, int) bool:
+			if fn(v, i) {
+				result = append(result, v)
+			}
 		}
 	}
 	if isPtr {
@@ -77,15 +89,25 @@ func Reduce[T any, K iterable[T], R any](arr K, fn func(R, T) R, initial R) R {
 	return result
 }
 
-func For[T any, K iterable[T]](arr K, fn func(T, int)) {
+func For[T any, K iterable[T]](arr K, fn func(T, int) bool) {
 	switch any(arr).(type) {
 	case []T:
 		for i, v := range any(arr).([]T) {
-			fn(v, i)
+			v := v
+			i := i
+			c := fn(v, i)
+			if !c {
+				return
+			}
 		}
 	case *[]T:
 		for i, v := range *any(arr).(*[]T) {
-			fn(v, i)
+			v := v
+			i := i
+			c := fn(v, i)
+			if !c {
+				return
+			}
 		}
 	}
 }
@@ -133,6 +155,22 @@ func Sort[T any, K iterable[T]](arr K, less func(T, T) bool) K {
 		return arr
 	}
 	return any(cp).(K)
+}
+
+func Keys[K comparable, V any](mp map[K]V) []K {
+	result := make([]K, 0, len(mp))
+	for k := range mp {
+		result = append(result, k)
+	}
+	return result
+}
+
+func Vals[K comparable, V any](mp map[K]V) []V {
+	result := make([]V, 0, len(mp))
+	for _, v := range mp {
+		result = append(result, v)
+	}
+	return result
 }
 
 func timSort[T any](arr []T, less func(T, T) bool) []T {

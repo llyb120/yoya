@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/llyb120/yoya/errx"
+	"github.com/llyb120/yoya/stlx"
 	"github.com/petermattis/goid"
 )
 
@@ -15,7 +16,7 @@ type Group struct {
 	eg errx.MultiError
 }
 
-var globalGroupHolder = sync.Map{}
+var globalGroupHolder = stlx.NewSyncBimMap[int64, int64]()
 
 func (g *Group) Go(fn func() error) {
 	g.wg.Add(1)
@@ -31,8 +32,8 @@ func (g *Group) Go(fn func() error) {
 		}()
 		// 存储协程id
 		localGoid := goid.Get()
-		globalGroupHolder.Store(localGoid, parentGoid)
-		defer globalGroupHolder.Delete(localGoid)
+		globalGroupHolder.Set(localGoid, parentGoid)
+		defer globalGroupHolder.Del(localGoid)
 		// 调用
 		err := fn()
 		if err != nil {

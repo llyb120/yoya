@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestOrderedSet(t *testing.T) {
+func TestorderedSet(t *testing.T) {
 	set0 := NewSet[string]("123", "444")
 	set := NewSet[string]([]string{"123", "444"})
 	set = NewSet[string](set0)

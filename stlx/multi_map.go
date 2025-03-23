@@ -2,12 +2,12 @@ package stlx
 
 type MultiMap[K comparable, V any] struct {
 	mu lock
-	*OrderedMap[K, []V]
+	*orderedMap[K, []V]
 }
 
 func NewMultiMap[K comparable, V any]() *MultiMap[K, V] {
 	return &MultiMap[K, V]{
-		OrderedMap: NewMap[K, []V](),
+		orderedMap: NewMap[K, []V](),
 	}
 }
 
@@ -25,7 +25,7 @@ func (m *MultiMap[K, V]) Set(key K, value V) {
 		item = []V{}
 	}
 	item = append(item, value)
-	m.OrderedMap.Set(key, item)
+	m.orderedMap.Set(key, item)
 }
 
 func (m *MultiMap[K, V]) GetLast(key K) (V, bool) {

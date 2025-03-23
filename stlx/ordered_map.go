@@ -1,18 +1,16 @@
 package stlx
 
-// OrderedMap 是一个协程安全的有序映射，按插入顺序维护键值对
-type OrderedMap[K comparable, V any] struct {
-	mu      lock
-	keys    []K
-	mp      map[K]V
-	indexes map[K]int
+// orderedMap 是一个协程安全的有序映射，按插入顺序维护键值对
+type orderedMap[K comparable, V any] struct {
+	mu   lock
+	keys []K
+	mp   map[K]V
 }
 
-// NewOrderedMap 创建一个新的有序映射
-func NewMap[K comparable, V any](args ...any) *OrderedMap[K, V] {
-	om := &OrderedMap[K, V]{
-		mp:      make(map[K]V),
-		indexes: make(map[K]int),
+// NeworderedMap 创建一个新的有序映射
+func NewMap[K comparable, V any](args ...any) *orderedMap[K, V] {
+	om := &orderedMap[K, V]{
+		mp: make(map[K]V),
 	}
 	for _, arg := range args {
 		switch v := arg.(type) {
@@ -30,14 +28,14 @@ func NewMap[K comparable, V any](args ...any) *OrderedMap[K, V] {
 	return om
 }
 
-func NewSyncMap[K comparable, V any](args ...any) *OrderedMap[K, V] {
+func NewSyncMap[K comparable, V any](args ...any) *orderedMap[K, V] {
 	om := NewMap[K, V](args...)
 	om.mu.sync = true
 	return om
 }
 
 // Set 添加或更新键值对
-func (om *OrderedMap[K, V]) Set(key K, value V) {
+func (om *orderedMap[K, V]) Set(key K, value V) {
 	om.mu.Lock()
 	defer om.mu.Unlock()
 
@@ -45,41 +43,45 @@ func (om *OrderedMap[K, V]) Set(key K, value V) {
 }
 
 // Get 获取键对应的值
-func (om *OrderedMap[K, V]) Get(key K) (V, bool) {
+func (om *orderedMap[K, V]) Get(key K) (V, bool) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
-	val, exists := om.mp[key]
-	return val, exists
+	return om.get(key)
 }
 
 // Del 删除键值对
-func (om *OrderedMap[K, V]) Del(key K) V {
+func (om *orderedMap[K, V]) Del(key K) V {
 	om.mu.Lock()
 	defer om.mu.Unlock()
 
-	index, exists := om.indexes[key]
-	if !exists {
+	var index = -1
+	for i, k := range om.keys {
+		if k == key {
+			index = i
+			break
+		}
+	}
+	if index == -1 {
 		var zero V
 		return zero
 	} else {
 		val := om.mp[key]
 		delete(om.mp, key)
-		delete(om.indexes, key)
 		om.keys = append(om.keys[:index], om.keys[index+1:]...)
 		return val
 	}
 }
 
 // Size 返回映射大小
-func (om *OrderedMap[K, V]) Len() int {
+func (om *orderedMap[K, V]) Len() int {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 	return len(om.keys)
 }
 
 // Keys 按插入顺序返回所有键
-func (om *OrderedMap[K, V]) Keys() []K {
+func (om *orderedMap[K, V]) Keys() []K {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
@@ -89,7 +91,7 @@ func (om *OrderedMap[K, V]) Keys() []K {
 }
 
 // Vals 按插入顺序返回所有值
-func (om *OrderedMap[K, V]) Vals() []V {
+func (om *orderedMap[K, V]) Vals() []V {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 
@@ -101,7 +103,7 @@ func (om *OrderedMap[K, V]) Vals() []V {
 }
 
 // Clear 清空映射
-func (om *OrderedMap[K, V]) Clear() {
+func (om *orderedMap[K, V]) Clear() {
 	om.mu.Lock()
 	defer om.mu.Unlock()
 
@@ -109,7 +111,7 @@ func (om *OrderedMap[K, V]) Clear() {
 }
 
 // For 按顺序遍历所有键值对
-func (om *OrderedMap[K, V]) For(fn func(key K, value V) bool) {
+func (om *orderedMap[K, V]) For(fn func(key K, value V) bool) {
 	om.mu.RLock()
 	defer om.mu.RUnlock()
 

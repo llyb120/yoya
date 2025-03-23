@@ -7,8 +7,8 @@ import (
 
 func TestMap(t *testing.T) {
 	arr := []int{1, 2, 3, 4, 5}
-	result := Map(arr, func(v int, i int) int {
-		return v * 2
+	result := Map(arr, func(v int) (int, bool) {
+		return v * 2, true
 	})
 	if len(result) != len(arr) {
 		t.Errorf("Map result length is not equal to input length")
@@ -35,7 +35,7 @@ func TestDistinct(t *testing.T) {
 
 func TestFilter(t *testing.T) {
 	arr := []int{1, 2, 3, 4, 5, 1, 2, 3, 4, 5}
-	result := Filter(arr, func(v int, i int) bool {
+	result := Filter(arr, func(v int) bool {
 		return v%2 == 0
 	})
 	if len(result) != 4 {

@@ -2,11 +2,15 @@ package cachex
 
 import "time"
 
-type Cache[T any] interface {
-	Get(key string) (value T, ok bool)
-	Set(key string, value T)
-	SetExpire(key string, value T, expire time.Duration)
-	Del(key string)
+type Cache[K comparable, V any] interface {
+	Get(key K) (value V, ok bool)
+	Gets(keys ...K) []V
+	Set(key K, value V)
+	SetExpire(key K, value V, expire time.Duration)
+	Del(key K)
+	Clear()
+	Destroy()
+	GetOrSetFunc(key K, fn func() V) V
 }
 
 type cacheItemWrapper[T any] struct {

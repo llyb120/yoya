@@ -1,12 +1,11 @@
 package stlx
 
-func (om *OrderedMap[K, V]) clear() {
+func (om *orderedMap[K, V]) clear() {
 	om.keys = nil
 	om.mp = make(map[K]V)
-	om.indexes = make(map[K]int)
 }
 
-func (om *OrderedMap[K, V]) set(key K, value V) {
+func (om *orderedMap[K, V]) set(key K, value V) {
 	if _, exists := om.mp[key]; exists {
 		// 如果键已存在，只更新值
 		om.mp[key] = value
@@ -16,10 +15,14 @@ func (om *OrderedMap[K, V]) set(key K, value V) {
 	// 添加到映射
 	om.keys = append(om.keys, key)
 	om.mp[key] = value
-	om.indexes[key] = len(om.keys) - 1
 }
 
-func (om *OrderedMap[K, V]) foreach(fn func(key K, value V) bool) {
+func (om *orderedMap[K, V]) get(key K) (V, bool) {
+	v, ok := om.mp[key]
+	return v, ok
+}
+
+func (om *orderedMap[K, V]) foreach(fn func(key K, value V) bool) {
 	for _, key := range om.keys {
 		if !fn(key, om.mp[key]) {
 			break
@@ -27,26 +30,26 @@ func (om *OrderedMap[K, V]) foreach(fn func(key K, value V) bool) {
 	}
 }
 
-func (om *OrderedMap[K, V]) lock() {
+func (om *orderedMap[K, V]) lock() {
 	om.mu.Lock()
 }
 
-func (om *OrderedMap[K, V]) unlock() {
+func (om *orderedMap[K, V]) unlock() {
 	om.mu.Unlock()
 }
 
-func (om *OrderedMap[K, V]) rlock() {
+func (om *orderedMap[K, V]) rlock() {
 	om.mu.RLock()
 }
 
-func (om *OrderedMap[K, V]) runlock() {
+func (om *orderedMap[K, V]) runlock() {
 	om.mu.RUnlock()
 }
 
-func (om *OrderedMap[K, V]) MarshalJSON() ([]byte, error) {
+func (om *orderedMap[K, V]) MarshalJSON() ([]byte, error) {
 	return marshalMap[K, V](om)
 }
 
-func (om *OrderedMap[K, V]) UnmarshalJSON(data []byte) error {
+func (om *orderedMap[K, V]) UnmarshalJSON(data []byte) error {
 	return unmarshalMap[K, V](om, data)
 }

@@ -6,7 +6,7 @@ import (
 )
 
 func TestHolder(t *testing.T) {
-	holder := NewHolder[int](nil)
+	var holder Holder[int]
 	var g Group
 	holder.Set(1)
 	g.Go(func() error {

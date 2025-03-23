@@ -4,20 +4,29 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/llyb120/yoya/lsx"
 )
 
-type future[T any] struct {
+type awaitOption int
+
+const (
+	WAIT_ALL awaitOption = 0
+)
+
+type future struct {
 	exprtime time.Time
-	result   T
+	result   any
 	err      error
 	wg       sync.WaitGroup
 	done     atomic.Bool
 }
 
-func (f *future[T]) Get(timeout time.Duration) (T, error) {
+func (f *future) Get(timeout time.Duration) (any, error) {
 	if f.done.Load() {
 		return f.result, f.err
 	}
@@ -42,8 +51,7 @@ func (f *future[T]) Get(timeout time.Duration) (T, error) {
 			return f.result, f.err
 		case <-ctx.Done():
 			// 超时了，返回零值和超时错误
-			var zero T
-			return zero, fmt.Errorf("获取结果超时: %w", ctx.Err())
+			return nil, fmt.Errorf("获取结果超时: %w", ctx.Err())
 		}
 	} else {
 		// 没有超时，等待结果
@@ -56,17 +64,15 @@ func (f *future[T]) Get(timeout time.Duration) (T, error) {
 	return f.result, nil
 }
 
-var futureHolder sync.Map
-
 func Async[T any](fn any) func(...any) *T {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
 	return func(args ...any) (ptrResult *T) {
-		future := &future[any]{exprtime: time.Now().Add(5 * time.Minute)}
+		future := &future{exprtime: time.Now().Add(5 * time.Minute)}
 		var zero T
 		ptrResult = &zero
 		future.wg.Add(1)
-		futureHolder.Store(ptrResult, future)
+		futureHolder.save(ptrResult, future)
 
 		go func() {
 			defer func() {
@@ -115,12 +121,12 @@ func Async[T any](fn any) func(...any) *T {
 func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 	ft := fn.Type()
 	return func(args ...any) (ptrResult any) {
-		future := &future[any]{exprtime: time.Now().Add(5 * time.Minute)}
+		future := &future{exprtime: time.Now().Add(5 * time.Minute)}
 		// var zero = reflect.New(outType).Interface()
 		ptrRef := reflect.New(outType)
 		ptrResult = ptrRef.Interface()
 		future.wg.Add(1)
-		futureHolder.Store(ptrResult, future)
+		futureHolder.save(ptrResult, future)
 
 		go func() {
 			defer func() {
@@ -204,6 +210,7 @@ func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 
 func Await(objs ...any) error {
 	var timeout time.Duration = 0
+	var shouldWaitAll = false
 
 	// 检查最后一个参数是否为超时时间
 	if len(objs) > 0 {
@@ -213,30 +220,47 @@ func Await(objs ...any) error {
 		}
 	}
 
-	if len(objs) > 1 {
+	lsx.Filter(&objs, func(e any) bool {
+		if e == WAIT_ALL {
+			shouldWaitAll = true
+		}
+		return e != WAIT_ALL
+	})
+	if len(objs) == 0 {
+		shouldWaitAll = true
+	}
+	var futures = lsx.Map(objs, func(e any) (*future, bool) {
+		f := futureHolder.loadAndDelete(e)
+		return f, f != nil
+	})
+
+	if shouldWaitAll {
+		mps := futureHolder.loadAndDeleteWithGid()
+		futures = append(futures, lsx.Vals(mps)...)
+	}
+
+	if len(futures) > 1 {
 		var g Group
-		for _, obj := range objs {
-			obj := obj
+		lsx.For(futures, func(f *future, _ int) bool {
 			g.Go(func() error {
-				f, ok := futureHolder.LoadAndDelete(obj)
-				if !ok {
-					return nil
-				}
-				_, err := f.(*future[any]).Get(0)
+				_, err := f.Get(timeout)
 				return err
 			})
-		}
+			return true
+		})
 		return g.Wait(timeout)
 
-	} else if len(objs) == 1 {
-		f, ok := futureHolder.LoadAndDelete(objs[0])
-		if !ok {
-			return nil
-		}
-		_, err := f.(*future[any]).Get(timeout)
+	} else if len(futures) == 1 {
+		f := futures[0]
+		_, err := f.Get(timeout)
 		return err
 	}
+
 	return nil
+}
+
+func ResetAsync() {
+	futureHolder.cleanGid()
 }
 
 // 清理因失败而过期的future
@@ -252,18 +276,6 @@ func clearFutures() {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
-		var deletedKeys []any
-		now := time.Now()
-		futureHolder.Range(func(key, value any) bool {
-			future := value.(*future[any])
-			// 如果超时2倍以上且没有清理，则清理
-			if future.exprtime.Before(now) && future.done.Load() {
-				deletedKeys = append(deletedKeys, key)
-			}
-			return true
-		})
-		for _, key := range deletedKeys {
-			futureHolder.Delete(key)
-		}
+		futureHolder.clean()
 	}
 }

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestOrderedMap(t *testing.T) {
+func TestorderedMap(t *testing.T) {
 	om := NewMap[string, int]()
 	om.Set("a", 1)
 	om.Set("b", 2)
@@ -35,7 +35,7 @@ func TestOrderedMap(t *testing.T) {
 
 }
 
-func TestOrderedMap2(t *testing.T) {
+func TestorderedMap2(t *testing.T) {
 	om := NewMap[string, int](map[string]int{"a": 1, "b": 2, "c": 3})
 	om.For(func(key string, value int) bool {
 		t.Logf("key: %s, value: %d", key, value)
