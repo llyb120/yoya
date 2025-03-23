@@ -288,17 +288,17 @@ func (c *Converter) Convert(src, dest interface{}) error {
 
 	// 特殊处理： 如果源是 map 类型，目标是结构体类型
 	if srcValue.Kind() == reflect.Map && destElemValue.Kind() == reflect.Struct {
-		return c.convertMapToStruct(srcValue, destElemValue, srcType, destType)
+		return c.convertMapToStruct(srcValue, destElemValue, srcElemTypeObj, destElemTypeObj)
 	}
 
 	// 特殊处理： 如果源是结构体类型，目标是 map 类型
 	if srcValue.Kind() == reflect.Struct && destElemValue.Kind() == reflect.Map {
-		return c.convertStructToMap(srcValue, destElemValue, srcType, destType)
+		return c.convertStructToMap(srcValue, destElemValue, srcElemTypeObj, destElemTypeObj)
 	}
 
 	// 如果源和目标不是结构体，尝试直接转换值
 	if srcValue.Kind() != reflect.Struct || destElemValue.Kind() != reflect.Struct {
-		return c.convertNonStructValues(srcValue, destElemValue, srcType, destType)
+		return c.convertNonStructValues(srcValue, destElemValue, srcElemTypeObj, destElemTypeObj)
 	}
 
 	// 确保它们是结构体类型
@@ -572,19 +572,19 @@ func (c *Converter) convertNonStructValues(src, dest reflect.Value, srcType, des
 			// 如果目标不是指针，但转换后的值是指针
 			if dest.Kind() != reflect.Ptr && convertedValueReflect.Kind() == reflect.Ptr {
 				// 取指针指向的值
-				c.unsafeSetField(dest, []int{0}, convertedValueReflect.Elem())
+				c.unsafeSetFieldValue(dest, convertedValueReflect.Elem())
 				return nil
 			}
 
 			// 如果类型可以直接赋值
 			if convertedValueReflect.Type().AssignableTo(destType) {
-				c.unsafeSetField(dest, []int{0}, convertedValueReflect)
+				c.unsafeSetFieldValue(dest, convertedValueReflect)
 				return nil
 			}
 
 			// 如果类型不匹配但可以转换
 			if convertedValueReflect.Type().ConvertibleTo(destType) {
-				c.unsafeSetField(dest, []int{0}, convertedValueReflect.Convert(destType))
+				c.unsafeSetFieldValue(dest, convertedValueReflect.Convert(destType))
 				return nil
 			}
 		}

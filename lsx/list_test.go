@@ -52,3 +52,20 @@ func TestSort(t *testing.T) {
 		fmt.Println(v)
 	}
 }
+
+func ttt(arr []int) {
+	for i, _ := range arr {
+		arr[i] = arr[i] * 2
+		fmt.Println(i, arr[i])
+	}
+}
+
+func TestMock(t *testing.T) {
+	arr := []string{"1", "2", "3", "4", "5"}
+	err := Mock(&arr, func(arr *[]int) {
+		ttt(*arr)
+	})
+	if err != nil {
+		t.Errorf("Mock error: %v", err)
+	}
+}

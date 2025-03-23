@@ -1,5 +1,7 @@
 package lsx
 
+import "github.com/llyb120/yoya/objx"
+
 type iterable[T any] interface {
 	[]T | *[]T
 }
@@ -171,6 +173,23 @@ func Vals[K comparable, V any](mp map[K]V) []V {
 		result = append(result, v)
 	}
 	return result
+}
+
+func Mock[K any, T any](arr *[]K, fn func(*[]T)) error {
+	var mock []T
+	err := objx.Cast(arr, &mock)
+	if err != nil {
+		return err
+	}
+	fn(&mock)
+	// 还原
+	var result []K
+	err = objx.Cast(mock, &result)
+	if err != nil {
+		return err
+	}
+	*arr = result
+	return nil
 }
 
 func timSort[T any](arr []T, less func(T, T) bool) []T {
