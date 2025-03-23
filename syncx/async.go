@@ -15,7 +15,7 @@ import (
 type awaitOption int
 
 const (
-	WAIT_ALL awaitOption = 0
+	WaitAll awaitOption = 0
 )
 
 type future struct {
@@ -221,10 +221,10 @@ func Await(objs ...any) error {
 	}
 
 	lsx.Filter(&objs, func(e any) bool {
-		if e == WAIT_ALL {
+		if e == WaitAll {
 			shouldWaitAll = true
 		}
-		return e != WAIT_ALL
+		return e != WaitAll
 	})
 	if len(objs) == 0 {
 		shouldWaitAll = true
