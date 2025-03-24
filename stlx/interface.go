@@ -11,6 +11,12 @@ type Map[K any, V any] interface {
 	For(fn func(key K, value V) bool)
 }
 
+type MultiMap[K any, V any] interface {
+	Map[K, []V]
+}
+
+// ------------------ map end ------------------
+
 type Collection[T any] interface {
 	Add(item T)
 	Len() int
