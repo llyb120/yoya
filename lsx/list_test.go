@@ -8,7 +8,7 @@ import (
 
 func TestMap(t *testing.T) {
 	arr := []int{1, 2, 3, 4, 5}
-	result := Map(arr, func(v int) (int, bool) {
+	result := Map(arr, func(v int, i int) (int, bool) {
 		return v * 2, true
 	})
 	if len(result) != len(arr) {
@@ -24,22 +24,26 @@ func TestMap(t *testing.T) {
 func TestDistinct(t *testing.T) {
 	arr := []int{1, 2, 3, 4, 5, 1, 2, 3, 4, 5}
 	// 居然不能自动推导？？
-	result := Distinct(arr)
-	if len(result) != 5 {
-		t.Errorf("Distinct result length is not equal to input length")
-	}
 	Distinct(&arr)
 	if len(arr) != 5 {
+		t.Errorf("Distinct result length is not equal to input length")
+	}
+
+	arr = []int{1, 2, 3, 4, 5, 1, 2, 3, 4, 5}
+	Distinct(&arr, func(v int, i int) any {
+		return v % 2
+	})
+	if len(arr) != 4 {
 		t.Errorf("Distinct result length is not equal to input length")
 	}
 }
 
 func TestFilter(t *testing.T) {
 	arr := []int{1, 2, 3, 4, 5, 1, 2, 3, 4, 5}
-	result := Filter(arr, func(v int) bool {
+	Filter(&arr, func(v int, i int) bool {
 		return v%2 == 0
 	})
-	if len(result) != 4 {
+	if len(arr) != 4 {
 		t.Errorf("Filter result length is not equal to input length")
 	}
 }
