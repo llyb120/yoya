@@ -1,4 +1,4 @@
-package datex
+package tickx
 
 import (
 	"fmt"

@@ -2,6 +2,7 @@ package lsx
 
 import (
 	"fmt"
+	"regexp"
 	"testing"
 )
 
@@ -56,7 +57,6 @@ func TestSort(t *testing.T) {
 func ttt(arr []int) {
 	for i, _ := range arr {
 		arr[i] = arr[i] * 2
-		fmt.Println(i, arr[i])
 	}
 }
 
@@ -67,5 +67,51 @@ func TestMock(t *testing.T) {
 	})
 	if err != nil {
 		t.Errorf("Mock error: %v", err)
+	}
+	for _, v := range arr {
+		fmt.Println(v)
+	}
+}
+
+type TestStruct struct {
+	Field0 string
+	Field1 string
+	Field2 string
+
+	NormalField  string
+	NormalField1 string
+}
+
+func TestMock2(t *testing.T) {
+	arr := []TestStruct{
+		{
+			Field0:       "1",
+			Field1:       "2",
+			Field2:       "3",
+			NormalField:  "4",
+			NormalField1: "5",
+		},
+		{
+			Field0:       "6",
+			Field1:       "7",
+			Field2:       "8",
+			NormalField:  "9",
+			NormalField1: "10",
+		},
+	}
+	var re = regexp.MustCompile(`^Field\d+$`)
+	if err := Mock(&arr, func(arr *[]map[string]any) {
+		for i, _ := range *arr {
+			for k, v := range (*arr)[i] {
+				if re.MatchString(k) {
+					(*arr)[i][k] = v.(string) + " hey!"
+				}
+			}
+		}
+	}); err != nil {
+		t.Errorf("Mock error: %v", err)
+	}
+	for _, v := range arr {
+		fmt.Println(v)
 	}
 }
