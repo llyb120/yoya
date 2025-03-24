@@ -2,19 +2,15 @@ package lsx
 
 import (
 	// "reflect"
-	reflect "github.com/goccy/go-reflect"
+
 	"github.com/llyb120/yoya/objx"
 	"github.com/llyb120/yoya/stlx"
 )
 
-type iterable[T any] interface {
-	[]T | *[]T
-}
-
-func Map[T any, R any](arr []T, fn func(T) (R, bool)) []R {
+func Map[T any, R any](arr []T, fn func(T, int) (R, bool)) []R {
 	result := make([]R, 0, len(arr))
-	for _, v := range arr {
-		r, ok := fn(v)
+	for i, v := range arr {
+		r, ok := fn(v, i)
 		if !ok {
 			continue
 		}
@@ -23,152 +19,81 @@ func Map[T any, R any](arr []T, fn func(T) (R, bool)) []R {
 	return result
 }
 
-func Filter[T any, K iterable[T], M func(T) bool](arr K, fn M) K {
+func Filter[T any](arr *[]T, fn func(T, int) bool) {
 	var result []T
-	var _arr []T
-	var isPtr bool
-	switch any(arr).(type) {
-	case []T:
-		_arr = any(arr).([]T)
-	case *[]T:
-		_arr = *any(arr).(*[]T)
-		isPtr = true
-	}
-	result = make([]T, 0, len(_arr))
-	for i, v := range _arr {
-		switch fn := any(fn).(type) {
-		case func(T) bool:
-			if fn(v) {
-				result = append(result, v)
-			}
-		case func(T, int) bool:
-			if fn(v, i) {
-				result = append(result, v)
-			}
+	result = make([]T, 0, len(*arr))
+	for i, v := range *arr {
+		if fn(v, i) {
+			result = append(result, v)
 		}
 	}
-	if isPtr {
-		*any(arr).(*[]T) = result
-		return arr
-	}
-	return any(result).(K)
+	*arr = result
 }
 
-func Find[T any, K iterable[T]](arr K, fn func(T, int) bool) (T, bool) {
+func Find[T any](arr []T, fn func(T, int) bool) (T, bool) {
 	index := FindIndex(arr, fn)
 	if index == -1 {
 		var zero T
 		return zero, false
 	}
-	return any(arr).([]T)[index], true
+	return arr[index], true
 }
 
-func FindIndex[T any, K iterable[T]](arr K, fn func(T, int) bool) int {
-	switch any(arr).(type) {
-	case []T:
-		for i, v := range any(arr).([]T) {
-			if fn(v, i) {
-				return i
-			}
-		}
-	case *[]T:
-		for i, v := range *any(arr).(*[]T) {
-			if fn(v, i) {
-				return i
-			}
+func FindIndex[T any](arr []T, fn func(T, int) bool) int {
+	for i, v := range arr {
+		if fn(v, i) {
+			return i
 		}
 	}
 	return -1
 }
 
-func Reduce[T any, K iterable[T], R any](arr K, fn func(R, T) R, initial R) R {
+func Reduce[T any, R any](arr []T, fn func(R, T) R, initial R) R {
 	var source []T
 	result := initial
-	switch any(arr).(type) {
-	case []T:
-		source = any(arr).([]T)
-	case *[]T:
-		source = *any(arr).(*[]T)
-	}
+	source = arr
 	for _, v := range source {
 		result = fn(result, v)
 	}
 	return result
 }
 
-func For[T any, K iterable[T]](arr K, fn func(T, int) bool) {
-	switch any(arr).(type) {
-	case []T:
-		for i, v := range any(arr).([]T) {
-			v := v
-			i := i
-			c := fn(v, i)
-			if !c {
-				return
-			}
-		}
-	case *[]T:
-		for i, v := range *any(arr).(*[]T) {
-			v := v
-			i := i
-			c := fn(v, i)
-			if !c {
-				return
-			}
+func For[T any](arr []T, fn func(T, int) bool) {
+	var source []T
+	source = arr
+	for i, v := range source {
+		c := fn(v, i)
+		if !c {
+			return
 		}
 	}
 }
 
-func Distinct[T any](arr T) T {
-	// var source []T
-	var isPtr bool
-	tp := reflect.TypeOf(arr)
-	val := reflect.ValueOf(arr)
-	if tp.Kind() == reflect.Ptr {
-		isPtr = true
-		val = val.Elem()
-	}
-	if val.Kind() != reflect.Slice {
-		var zero T
-		return zero
-	}
-	var source = reflect.MakeSlice(val.Type(), 0, val.Len())
+func Distinct[T any](arr *[]T, fn ...func(T, int) any) {
 	var mp = make(map[any]bool)
-	for i := 0; i < val.Len(); i++ {
-		refV := val.Index(i)
-		v := refV.Interface()
-		if mp[v] {
+	var result []T
+	for i, v := range *arr {
+		var k any
+		if len(fn) > 0 {
+			k = fn[0](v, i)
+		} else {
+			k = v
+		}
+		if mp[k] {
 			continue
 		}
-		source = reflect.Append(source, refV)
-		mp[v] = true
+		result = append(result, v)
+		mp[k] = true
 	}
-	if isPtr {
-		val.Set(source)
-		return arr
-	} else {
-		return source.Interface().(T)
-	}
+	*arr = result
 }
 
-func Sort[T any, K iterable[T]](arr K, less func(T, T) bool) K {
+func Sort[T any](arr *[]T, less func(T, T) bool) {
 	var cp []T
-	var isPtr bool
-	switch any(arr).(type) {
-	case []T:
-		cp = make([]T, len(cp))
-		copy(cp, any(arr).([]T))
-	case *[]T:
-		cp = make([]T, len(*any(arr).(*[]T)))
-		copy(cp, *any(arr).(*[]T))
-		isPtr = true
-	}
+	cp = make([]T, len(*arr))
+	copy(cp, *arr)
 	cp = timSort(cp, less)
-	if isPtr {
-		*any(arr).(*[]T) = cp
-		return arr
-	}
-	return any(cp).(K)
+	*arr = cp
 }
 
 func Keys[K comparable, V any](mp map[K]V) []K {
@@ -204,10 +129,10 @@ func Mock[K any, T any](arr *[]K, fn func(*[]T)) error {
 	return nil
 }
 
-func Group[T any](arr []T, fn func(T) any) [][]T {
+func Group[T any](arr []T, fn func(T, int) any) [][]T {
 	var result = stlx.NewMultiMap[any, T]()
-	for _, v := range arr {
-		k := fn(v)
+	for i, v := range arr {
+		k := fn(v, i)
 		if k == nil {
 			continue
 		}

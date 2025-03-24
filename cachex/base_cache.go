@@ -83,10 +83,24 @@ func (c *baseCache[K, V]) Set(key K, value V) {
 func (c *baseCache[K, V]) SetExpire(key K, value V, expire time.Duration) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+	c.setExpire(key, value, expire)
+}
+
+func (c *baseCache[K, V]) setExpire(key K, value V, expire time.Duration) {
 	c.cache[key] = cacheItemWrapper[V]{
 		value:     value,
 		expire:    time.Now().Add(expire),
 		canExpire: expire > 0,
+	}
+}
+
+func (c *baseCache[K, V]) SetMap(m map[K]V) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for key, value := range m {
+		key := key
+		value := value
+		c.setExpire(key, value, c.opts.DefaultKeyExpire)
 	}
 }
 
