@@ -12,7 +12,14 @@ type Map[K any, V any] interface {
 }
 
 type MultiMap[K any, V any] interface {
-	Map[K, []V]
+	Set(key K, value V)
+	Get(key K) ([]V, bool)
+	Del(key K) []V
+	Len() int
+	Keys() []K
+	Vals() [][]V
+	Clear()
+	For(fn func(key K, value []V) bool)
 }
 
 // ------------------ map end ------------------
