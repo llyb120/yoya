@@ -19,6 +19,14 @@ func Map[T any, R any](arr []T, fn func(T, int) (R, bool)) []R {
 	return result
 }
 
+func FlatMap[T any, R any](arr []T, fn func(T, int) []R) []R {
+	var result []R
+	for i, v := range arr {
+		result = append(result, fn(v, i)...)
+	}
+	return result
+}
+
 func Filter[T any](arr *[]T, fn func(T, int) bool) {
 	var result []T
 	result = make([]T, 0, len(*arr))
