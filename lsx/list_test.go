@@ -24,11 +24,11 @@ func TestMap(t *testing.T) {
 func TestDistinct(t *testing.T) {
 	arr := []int{1, 2, 3, 4, 5, 1, 2, 3, 4, 5}
 	// 居然不能自动推导？？
-	result := Distinct[int](arr)
+	result := Distinct(arr)
 	if len(result) != 5 {
 		t.Errorf("Distinct result length is not equal to input length")
 	}
-	Distinct[int](&arr)
+	Distinct(&arr)
 	if len(arr) != 5 {
 		t.Errorf("Distinct result length is not equal to input length")
 	}

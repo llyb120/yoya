@@ -1,6 +1,10 @@
 package lsx
 
-import "github.com/llyb120/yoya/objx"
+import (
+	// "reflect"
+	reflect "github.com/goccy/go-reflect"
+	"github.com/llyb120/yoya/objx"
+)
 
 type iterable[T any] interface {
 	[]T | *[]T
@@ -114,29 +118,36 @@ func For[T any, K iterable[T]](arr K, fn func(T, int) bool) {
 	}
 }
 
-func Distinct[T comparable, K iterable[T]](arr K) K {
-	var source []T
+func Distinct[T any](arr T) T {
+	// var source []T
 	var isPtr bool
-	switch any(arr).(type) {
-	case []T:
-		source = any(arr).([]T)
-	case *[]T:
-		source = *any(arr).(*[]T)
+	tp := reflect.TypeOf(arr)
+	val := reflect.ValueOf(arr)
+	if tp.Kind() == reflect.Ptr {
 		isPtr = true
+		val = val.Elem()
 	}
-	var mp = make(map[T]bool)
-	result := make([]T, 0)
-	for _, v := range source {
-		if !mp[v] {
-			mp[v] = true
-			result = append(result, v)
+	if val.Kind() != reflect.Slice {
+		var zero T
+		return zero
+	}
+	var source = reflect.MakeSlice(val.Type(), 0, val.Len())
+	var mp = make(map[any]bool)
+	for i := 0; i < val.Len(); i++ {
+		refV := val.Index(i)
+		v := refV.Interface()
+		if mp[v] {
+			continue
 		}
+		source = reflect.Append(source, refV)
+		mp[v] = true
 	}
 	if isPtr {
-		*any(arr).(*[]T) = result
+		val.Set(source)
 		return arr
+	} else {
+		return source.Interface().(T)
 	}
-	return any(result).(K)
 }
 
 func Sort[T any, K iterable[T]](arr K, less func(T, T) bool) K {
