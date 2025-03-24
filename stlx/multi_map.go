@@ -1,23 +1,23 @@
 package stlx
 
-type MultiMap[K comparable, V any] struct {
+type multiMap[K comparable, V any] struct {
 	mu lock
 	*orderedMap[K, []V]
 }
 
-func NewMultiMap[K comparable, V any]() *MultiMap[K, V] {
-	return &MultiMap[K, V]{
+func NewMultiMap[K comparable, V any]() *multiMap[K, V] {
+	return &multiMap[K, V]{
 		orderedMap: NewMap[K, []V](),
 	}
 }
 
-func NewSyncMultiMap[K comparable, V any]() *MultiMap[K, V] {
+func NewSyncMultiMap[K comparable, V any]() *multiMap[K, V] {
 	mm := NewMultiMap[K, V]()
 	mm.mu.sync = true
 	return mm
 }
 
-func (m *MultiMap[K, V]) Set(key K, value V) {
+func (m *multiMap[K, V]) Set(key K, value V) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	item, ok := m.Get(key)
@@ -28,7 +28,7 @@ func (m *MultiMap[K, V]) Set(key K, value V) {
 	m.orderedMap.Set(key, item)
 }
 
-func (m *MultiMap[K, V]) GetLast(key K) (V, bool) {
+func (m *multiMap[K, V]) GetLast(key K) (V, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	item, ok := m.Get(key)

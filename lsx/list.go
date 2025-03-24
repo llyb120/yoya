@@ -4,6 +4,7 @@ import (
 	// "reflect"
 	reflect "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/objx"
+	"github.com/llyb120/yoya/stlx"
 )
 
 type iterable[T any] interface {
@@ -201,6 +202,18 @@ func Mock[K any, T any](arr *[]K, fn func(*[]T)) error {
 	}
 	*arr = result
 	return nil
+}
+
+func Group[T any](arr []T, fn func(T) any) [][]T {
+	var result = stlx.NewMultiMap[any, T]()
+	for _, v := range arr {
+		k := fn(v)
+		if k == nil {
+			continue
+		}
+		result.Set(k, v)
+	}
+	return result.Vals()
 }
 
 func timSort[T any](arr []T, less func(T, T) bool) []T {
