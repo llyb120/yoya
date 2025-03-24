@@ -159,7 +159,11 @@ func Move[T string | *string | time.Time | *time.Time](date T, movements ...any)
 			return zero
 		}
 	} else {
-		t = any(date).(time.Time)
+		if isPointer {
+			t = *any(date).(*time.Time)
+		} else {
+			t = any(date).(time.Time)
+		}
 	}
 
 	// 处理所有的时间调整
