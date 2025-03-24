@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	r "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/lsx"
 )
 
@@ -220,19 +221,36 @@ func Await(objs ...any) error {
 		}
 	}
 
-	lsx.Filter(&objs, func(e any) bool {
+	// 如果有需要展开的
+	var futures []*future = make([]*future, 0, len(objs))
+	for _, e := range objs {
 		if e == WaitAll {
 			shouldWaitAll = true
+			continue
 		}
-		return e != WaitAll
-	})
+		// 如果是数组，展开
+		tp := r.TypeOf(e)
+		if tp.Kind() == r.Array || tp.Kind() == r.Slice {
+			val := r.ValueOf(e)
+			for i := 0; i < val.Len(); i++ {
+				f := futureHolder.loadAndDelete(val.Index(i).Interface())
+				if f != nil {
+					futures = append(futures, f)
+				}
+			}
+			continue
+		}
+		// 其余的情况
+		f := futureHolder.loadAndDelete(e)
+		if f != nil {
+			futures = append(futures, f)
+		}
+	}
+
+	// 如果没有参数，等待所有
 	if len(objs) == 0 {
 		shouldWaitAll = true
 	}
-	var futures = lsx.Map(objs, func(e any) (*future, bool) {
-		f := futureHolder.loadAndDelete(e)
-		return f, f != nil
-	})
 
 	if shouldWaitAll {
 		mps := futureHolder.loadAndDeleteWithGid()
