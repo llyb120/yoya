@@ -63,7 +63,7 @@ func TestConcurrentConversion(t *testing.T) {
 
 			for j := 0; j < numIterations; j++ {
 				var target ConcurrentTarget
-				err := Cast(source, &target)
+				err := Cast(&target, source)
 				if err != nil {
 					t.Errorf("转换失败 (goroutine %d, iteration %d): %v", idx, j, err)
 					errorOccurred = true
@@ -101,7 +101,7 @@ func TestConcurrentConversion(t *testing.T) {
 			for j := 0; j < numIterations; j++ {
 				// 创建目标切片
 				var targetSlice []ConcurrentTarget
-				err := Cast(sourceSlice, &targetSlice)
+				err := Cast(&targetSlice, sourceSlice)
 				if err != nil {
 					t.Errorf("切片转换失败 (goroutine %d, iteration %d): %v", idx, j, err)
 					errorOccurred = true
@@ -137,7 +137,7 @@ func TestConcurrentConversion(t *testing.T) {
 					// 结构体到结构体
 					source := sources[idx]
 					var target ConcurrentTarget
-					err := Cast(source, &target)
+					err := Cast(&target, source)
 					if err != nil {
 						t.Errorf("缓存测试转换失败 (goroutine %d, iteration %d): %v", idx, j, err)
 						errorOccurred = true
@@ -151,7 +151,7 @@ func TestConcurrentConversion(t *testing.T) {
 						IsActive: j%3 == 0,
 					}
 					var target ConcurrentTarget
-					err := Cast(source, &target)
+					err := Cast(&target, source)
 					if err != nil {
 						t.Errorf("缓存测试转换失败 (goroutine %d, iteration %d): %v", idx, j, err)
 						errorOccurred = true

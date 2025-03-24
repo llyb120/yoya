@@ -124,9 +124,7 @@ func TestGroup(t *testing.T) {
 	arr := []int{
 		1, 2, 3, 4, 5, 1, 2, 3, 4, 5,
 	}
-	i := 0
-	result := Group(arr, func(v int) any {
-		defer func() { i++ }()
+	result := Group(arr, func(v int, i int) any {
 		return int(i / 3)
 	})
 	fmt.Println(result)

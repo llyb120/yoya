@@ -18,7 +18,7 @@ func Assign[T comparable, K0 any, K1 any](dest map[T]K0, source map[T]K1) {
 	} else {
 		// 一次性转过来
 		var mp map[T]K0
-		if err := Cast(source, &mp); err != nil {
+		if err := Cast(&mp, source); err != nil {
 			fmt.Println("err:", err)
 			return
 		}

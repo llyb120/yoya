@@ -114,14 +114,14 @@ func Vals[K comparable, V any](mp map[K]V) []V {
 
 func Mock[K any, T any](arr *[]K, fn func(*[]T)) error {
 	var mock []T
-	err := objx.Cast(arr, &mock)
+	err := objx.Cast(&mock, arr)
 	if err != nil {
 		return err
 	}
 	fn(&mock)
 	// 还原
 	var result []K
-	err = objx.Cast(mock, &result)
+	err = objx.Cast(&result, mock)
 	if err != nil {
 		return err
 	}

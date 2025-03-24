@@ -540,7 +540,7 @@ func TestReverseConversion(t *testing.T) {
 	}
 	var b []map[string]string
 
-	err := Cast(a, &b)
+	err := Cast(&b, a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -659,6 +659,6 @@ func Test(t *testing.T) {
 	var p1 P1
 	p1.A = 1
 	var p2 P2
-	Cast(p1, &p2)
+	Cast(&p2, p1)
 	fmt.Println("ok")
 }
