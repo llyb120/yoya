@@ -266,53 +266,70 @@ func (c *Converter) Convert(src, dest interface{}) error {
 		return errors.New("目标必须是指针类型")
 	}
 
-	// 获取源类型和目标类型
-	srcType := reflect.TypeOf(src)
-	destType := reflect.TypeOf(dest)
+	return c.convertByReflect(srcValue, destValue)
+}
 
+func (c *Converter) convertByReflect(srcValue, destValue reflect.Value) error {
+
+	// 获取源类型和目标类型
 	// 处理源类型
-	var srcElemTypeObj reflect.Type
-	isSrcPtr := srcValue.Kind() == reflect.Ptr
-	if isSrcPtr {
+	for srcValue.Kind() == reflect.Ptr {
 		// 如果是指针，获取其指向的类型
-		srcElemTypeObj = srcType.Elem()
 		// 解引用源值
 		srcValue = srcValue.Elem()
-	} else {
-		srcElemTypeObj = srcType
 	}
 
-	// 处理目标类型（目标已经确认是指针）
-	destElemTypeObj := destType.Elem()
-	destElemValue := destValue.Elem()
+	var destElemValue reflect.Value = destValue
+	for destElemValue.Kind() == reflect.Ptr {
+		// 如果是指针，获取其指向的类型
+		if destElemValue.IsNil() {
+			elemType := destElemValue.Type().Elem()
+			c.unsafeSetFieldValue(destElemValue, reflect.New(elemType))
+			if elemType.Kind() == reflect.Struct {
+				destElemValue.Elem().Set(reflect.Zero(elemType))
+			}
+		}
+		// 解引用目标值
+		destElemValue = destElemValue.Elem()
+	}
 
 	// 特殊处理： 如果源是 map 类型，目标是结构体类型
 	if srcValue.Kind() == reflect.Map && destElemValue.Kind() == reflect.Struct {
-		return c.convertMapToStruct(srcValue, destElemValue, srcElemTypeObj, destElemTypeObj)
+		return c.convertMapToStruct(srcValue, destElemValue)
 	}
 
 	// 特殊处理： 如果源是结构体类型，目标是 map 类型
 	if srcValue.Kind() == reflect.Struct && destElemValue.Kind() == reflect.Map {
-		return c.convertStructToMap(srcValue, destElemValue, srcElemTypeObj, destElemTypeObj)
+		return c.convertStructToMap(srcValue, destElemValue)
+	}
+
+	// map -> map
+	if srcValue.Kind() == reflect.Map && destElemValue.Kind() == reflect.Map {
+		return c.convertMapToMap(srcValue, destElemValue)
+	}
+
+	// slice -> slice
+	if srcValue.Kind() == reflect.Slice && destElemValue.Kind() == reflect.Slice {
+		return c.convertSliceToSlice(srcValue, destElemValue)
 	}
 
 	// 如果源和目标不是结构体，尝试直接转换值
 	if srcValue.Kind() != reflect.Struct || destElemValue.Kind() != reflect.Struct {
-		return c.convertNonStructValues(srcValue, destElemValue, srcElemTypeObj, destElemTypeObj)
+		return c.convertNonStructValues(srcValue, destElemValue)
 	}
 
 	// 确保它们是结构体类型
-	if srcElemTypeObj.Kind() != reflect.Struct || destElemTypeObj.Kind() != reflect.Struct {
+	if srcValue.Kind() != reflect.Struct || destElemValue.Kind() != reflect.Struct {
 		return errors.New("源和目标必须是结构体或结构体指针")
 	}
 
 	// 从缓存获取类型信息
-	srcCache := c.getOrCreateTypeCache(srcElemTypeObj)
-	destCache := c.getOrCreateTypeCache(destElemTypeObj)
+	srcCache := c.getOrCreateTypeCache(srcValue.Type())
+	destCache := c.getOrCreateTypeCache(destElemValue.Type())
 	_ = destCache // 避免未使用警告
 
 	// 获取类型映射缓存
-	mappingCache := c.getOrCreateMappingCache(srcElemTypeObj, destElemTypeObj, srcCache, destCache)
+	mappingCache := c.getOrCreateMappingCache(srcValue.Type(), destElemValue.Type(), srcCache, destCache)
 
 	// 获取目标结构体的类型
 	// destStructType := destElemTypeObj
@@ -327,7 +344,7 @@ func (c *Converter) Convert(src, dest interface{}) error {
 			continue
 		}
 
-		srcFieldValue := srcFieldReflect.Interface()
+		// srcFieldValue := srcFieldReflect.Interface()
 		// 获取目标字段值 - 也使用索引访问
 		destFieldReflect := destElemValue.FieldByIndex(mappingCacheItem.destFieldCache.indexes)
 
@@ -343,7 +360,7 @@ func (c *Converter) Convert(src, dest interface{}) error {
 
 		// 基本类型转换规则
 		if c.canConvert(srcFieldType, destFieldType) {
-			convertedValue, err := c.convertValue(srcFieldValue, srcFieldType, destFieldType)
+			convertedValue, err := c.convertValue(srcFieldReflect, srcFieldType, destFieldType)
 			if err == nil && convertedValue != nil {
 				convertedReflect := reflect.ValueOf(convertedValue)
 
@@ -432,14 +449,14 @@ func (c *Converter) memmove(dst, src unsafe.Pointer, size uintptr) {
 }
 
 // convertMapToStruct 将 map 转换为结构体
-func (c *Converter) convertMapToStruct(srcMap reflect.Value, destStruct reflect.Value, srcType, destType reflect.Type) error {
+func (c *Converter) convertMapToStruct(srcMap reflect.Value, destStruct reflect.Value) error {
 	// 检查 map 的键类型是否为 string
 	if srcMap.Type().Key().Kind() != reflect.String {
 		return errors.New("map 的键类型必须是 string")
 	}
 
 	// 从缓存中获取目标类型信息，如果没有则创建
-	destCache := c.getOrCreateTypeCache(destType)
+	destCache := c.getOrCreateTypeCache(destStruct.Type())
 
 	// 遍历结构体的每个字段
 	for fieldName, destFieldCache := range destCache.fields {
@@ -478,7 +495,7 @@ func (c *Converter) convertMapToStruct(srcMap reflect.Value, destStruct reflect.
 			c.unsafeSetField(destStruct, destFieldCache.indexes, mapValue)
 		} else {
 			// 类型不匹配，尝试转换
-			convertedValue, err := c.convertValue(mapValue.Interface(), reflect.TypeOf(mapValue.Interface()), reflect.TypeOf(destFieldValue.Interface()))
+			convertedValue, err := c.convertValue(mapValue, mapValue.Type(), reflect.TypeOf(destFieldValue.Interface()))
 			if err == nil && convertedValue != nil {
 				convertedReflect := reflect.ValueOf(convertedValue)
 				c.unsafeSetField(destStruct, destFieldCache.indexes, convertedReflect)
@@ -490,19 +507,19 @@ func (c *Converter) convertMapToStruct(srcMap reflect.Value, destStruct reflect.
 }
 
 // convertStructToMap 将结构体转换为 map
-func (c *Converter) convertStructToMap(srcStruct reflect.Value, destMap reflect.Value, srcType, destType reflect.Type) error {
+func (c *Converter) convertStructToMap(srcStruct reflect.Value, destMap reflect.Value) error {
 	// 检查 map 的键类型是否为 string
-	if destType.Key().Kind() != reflect.String {
+	if destMap.Type().Key().Kind() != reflect.String {
 		return errors.New("map 的键类型必须是 string")
 	}
 
 	// 如果 map 是 nil，初始化它
 	if destMap.IsNil() {
-		destMap.Set(reflect.MakeMap(destType))
+		destMap.Set(reflect.MakeMap(destMap.Type()))
 	}
 
 	// 从缓存中获取源类型信息，如果没有则创建
-	srcCache := c.getOrCreateTypeCache(srcType)
+	srcCache := c.getOrCreateTypeCache(srcStruct.Type())
 
 	// 遍历结构体的每个字段
 	for fieldName, srcFieldCache := range srcCache.fields {
@@ -519,14 +536,14 @@ func (c *Converter) convertStructToMap(srcStruct reflect.Value, destMap reflect.
 		}
 
 		// 存入 map
-		destMapElemType := destType.Elem()
+		destMapElemType := destMap.Type().Elem()
 
 		// 如果字段值可以直接赋值给 map 值类型
 		if srcFieldValue.Type().AssignableTo(destMapElemType) {
 			destMap.SetMapIndex(reflect.ValueOf(mapKey), srcFieldValue)
 		} else {
 			// 类型不匹配，尝试转换
-			convertedValue, err := c.convertValue(srcFieldValue.Interface(), reflect.TypeOf(srcFieldValue.Interface()), reflect.TypeOf(reflect.Zero(destMapElemType).Interface()))
+			convertedValue, err := c.convertValue(srcFieldValue, srcFieldValue.Type(), reflect.TypeOf(reflect.Zero(destMapElemType).Interface()))
 			if err == nil && convertedValue != nil {
 				destMap.SetMapIndex(reflect.ValueOf(mapKey), reflect.ValueOf(convertedValue))
 			} else {
@@ -542,10 +559,69 @@ func (c *Converter) convertStructToMap(srcStruct reflect.Value, destMap reflect.
 	return nil
 }
 
+func (c *Converter) convertMapToMap(srcMap reflect.Value, destMap reflect.Value) error {
+	// 如果目标map是nil，需要初始化
+	if destMap.IsNil() {
+		destMap.Set(reflect.MakeMap(destMap.Type()))
+	}
+
+	// 遍历源map的所有键值对
+	iter := srcMap.MapRange()
+	for iter.Next() {
+		srcKey := iter.Key()
+		srcVal := iter.Value()
+
+		// 转换key
+		val := reflect.ValueOf(srcKey.Interface())
+		destKey, err := c.convertValue(val, val.Type(), destMap.Type().Key())
+		if err != nil {
+			return fmt.Errorf("转换map key失败: %v", err)
+		}
+
+		// 转换value
+		val = reflect.ValueOf(srcVal.Interface())
+		destVal := reflect.New(destMap.Type().Elem())
+		err = c.convertByReflect(val, destVal)
+		if err != nil {
+			return fmt.Errorf("转换map value失败: %v", err)
+		}
+
+		// 设置到目标map
+		destMap.SetMapIndex(reflect.ValueOf(destKey), destVal.Elem())
+	}
+	return nil
+}
+
+func (c *Converter) convertSliceToSlice(srcSlice reflect.Value, destSlice reflect.Value) error {
+	// 如果目标切片是nil，需要初始化
+	if destSlice.IsNil() {
+		destSlice.Set(reflect.MakeSlice(destSlice.Type(), srcSlice.Len(), srcSlice.Len()))
+	}
+
+	// 遍历源切片
+	for i := 0; i < srcSlice.Len(); i++ {
+		srcElem := srcSlice.Index(i)
+		// destElem := destSlice.Index(i)
+
+		// 转换元素
+		destElem := reflect.New(destSlice.Type().Elem())
+		err := c.convertByReflect(srcElem, destElem)
+		if err != nil {
+			return fmt.Errorf("转换切片元素 %d 失败: %v", i, err)
+		}
+
+		// 设置到目标切片
+		c.unsafeSetFieldValue(destSlice.Index(i), destElem.Elem())
+		// destSlice.Set(reflect.Append(destSlice, destElem.Elem()))
+	}
+
+	return nil
+}
+
 // convertNonStructValues 处理非结构体之间的转换
-func (c *Converter) convertNonStructValues(src, dest reflect.Value, srcType, destType reflect.Type) error {
+func (c *Converter) convertNonStructValues(src, dest reflect.Value) error {
 	// 如果源和目标类型相同，直接赋值
-	if srcType.AssignableTo(destType) {
+	if src.Type().AssignableTo(dest.Type()) {
 		if dest.CanSet() {
 			c.unsafeSetField(dest, []int{0}, src)
 		}
@@ -554,7 +630,7 @@ func (c *Converter) convertNonStructValues(src, dest reflect.Value, srcType, des
 
 	// 尝试进行类型转换
 	if dest.CanSet() {
-		convertedValue, err := c.convertValue(src.Interface(), srcType, destType)
+		convertedValue, err := c.convertValue(src, src.Type(), dest.Type())
 		if err == nil && convertedValue != nil {
 			// 处理转换后的值可能与目标类型不匹配的情况
 			convertedValueReflect := reflect.ValueOf(convertedValue)
@@ -577,14 +653,14 @@ func (c *Converter) convertNonStructValues(src, dest reflect.Value, srcType, des
 			}
 
 			// 如果类型可以直接赋值
-			if convertedValueReflect.Type().AssignableTo(destType) {
+			if convertedValueReflect.Type().AssignableTo(dest.Type()) {
 				c.unsafeSetFieldValue(dest, convertedValueReflect)
 				return nil
 			}
 
 			// 如果类型不匹配但可以转换
-			if convertedValueReflect.Type().ConvertibleTo(destType) {
-				c.unsafeSetFieldValue(dest, convertedValueReflect.Convert(destType))
+			if convertedValueReflect.Type().ConvertibleTo(dest.Type()) {
+				c.unsafeSetFieldValue(dest, convertedValueReflect.Convert(dest.Type()))
 				return nil
 			}
 		}
@@ -593,136 +669,136 @@ func (c *Converter) convertNonStructValues(src, dest reflect.Value, srcType, des
 	return fmt.Errorf("无法将类型 %s 转换为 %s", src.Type(), dest.Type())
 }
 
-// ConvertSlice 将源切片转换为目标切片
-func (c *Converter) ConvertSlice(srcSlice, destSlice interface{}) error {
-	srcValue := reflect.ValueOf(srcSlice)
-	destValue := reflect.ValueOf(destSlice)
+// // ConvertSlice 将源切片转换为目标切片
+// func (c *Converter) ConvertSlice(srcSlice, destSlice interface{}) error {
+// 	srcValue := reflect.ValueOf(srcSlice)
+// 	destValue := reflect.ValueOf(destSlice)
 
-	// 检查源和目标是否为指针
-	if destValue.Kind() != reflect.Ptr {
-		return errors.New("源和目标切片必须是指针")
-	}
+// 	// 检查源和目标是否为指针
+// 	if destValue.Kind() != reflect.Ptr {
+// 		return errors.New("源和目标切片必须是指针")
+// 	}
 
-	// 解引用获取切片值
-	if srcValue.Kind() == reflect.Ptr {
-		srcValue = srcValue.Elem()
-	}
-	destValue = destValue.Elem()
+// 	// 解引用获取切片值
+// 	if srcValue.Kind() == reflect.Ptr {
+// 		srcValue = srcValue.Elem()
+// 	}
+// 	destValue = destValue.Elem()
 
-	// 检查源是否为切片
-	if srcValue.Kind() != reflect.Slice {
-		return errors.New("源必须是切片指针")
-	}
+// 	// 检查源是否为切片
+// 	if srcValue.Kind() != reflect.Slice {
+// 		return errors.New("源必须是切片指针")
+// 	}
 
-	// 检查目标是否为切片
-	if destValue.Kind() != reflect.Slice {
-		return errors.New("目标必须是切片指针")
-	}
+// 	// 检查目标是否为切片
+// 	if destValue.Kind() != reflect.Slice {
+// 		return errors.New("目标必须是切片指针")
+// 	}
 
-	// 获取源切片长度
-	srcLen := srcValue.Len()
+// 	// 获取源切片长度
+// 	srcLen := srcValue.Len()
 
-	// 获取源和目标元素类型
-	srcElemType := srcValue.Type().Elem()
-	destElemType := destValue.Type().Elem()
+// 	// 获取源和目标元素类型
+// 	srcElemType := srcValue.Type().Elem()
+// 	destElemType := destValue.Type().Elem()
 
-	// 判断是否为结构体到 map 或 map 到结构体的转换
-	isMapToStruct := srcElemType.Kind() == reflect.Map &&
-		(destElemType.Kind() == reflect.Struct ||
-			(destElemType.Kind() == reflect.Ptr && destElemType.Elem().Kind() == reflect.Struct))
+// 	// 判断是否为结构体到 map 或 map 到结构体的转换
+// 	isMapToStruct := srcElemType.Kind() == reflect.Map &&
+// 		(destElemType.Kind() == reflect.Struct ||
+// 			(destElemType.Kind() == reflect.Ptr && destElemType.Elem().Kind() == reflect.Struct))
 
-	isStructToMap := (srcElemType.Kind() == reflect.Struct ||
-		(srcElemType.Kind() == reflect.Ptr && srcElemType.Elem().Kind() == reflect.Struct)) &&
-		destElemType.Kind() == reflect.Map
+// 	isStructToMap := (srcElemType.Kind() == reflect.Struct ||
+// 		(srcElemType.Kind() == reflect.Ptr && srcElemType.Elem().Kind() == reflect.Struct)) &&
+// 		destElemType.Kind() == reflect.Map
 
-	// 创建新的目标切片
-	newSlice := reflect.MakeSlice(destValue.Type(), srcLen, srcLen)
+// 	// 创建新的目标切片
+// 	newSlice := reflect.MakeSlice(destValue.Type(), srcLen, srcLen)
 
-	// 是否是指针元素类型
-	isDestElemPtr := destElemType.Kind() == reflect.Ptr
-	destElemValueType := destElemType
-	if isDestElemPtr {
-		destElemValueType = destElemType.Elem()
-	}
+// 	// 是否是指针元素类型
+// 	isDestElemPtr := destElemType.Kind() == reflect.Ptr
+// 	destElemValueType := destElemType
+// 	if isDestElemPtr {
+// 		destElemValueType = destElemType.Elem()
+// 	}
 
-	// 遍历并转换每个元素
-	for i := 0; i < srcLen; i++ {
-		srcElem := srcValue.Index(i)
+// 	// 遍历并转换每个元素
+// 	for i := 0; i < srcLen; i++ {
+// 		srcElem := srcValue.Index(i)
 
-		// 创建目标元素
-		var destElem reflect.Value
-		if isDestElemPtr {
-			// 如果目标元素是指针类型，创建一个新的指针
-			destElem = reflect.New(destElemValueType)
-		} else {
-			// 如果目标元素不是指针类型，创建一个零值
-			destElem = reflect.New(destElemType)
-		}
+// 		// 创建目标元素
+// 		var destElem reflect.Value
+// 		if isDestElemPtr {
+// 			// 如果目标元素是指针类型，创建一个新的指针
+// 			destElem = reflect.New(destElemValueType)
+// 		} else {
+// 			// 如果目标元素不是指针类型，创建一个零值
+// 			destElem = reflect.New(destElemType)
+// 		}
 
-		// 根据类型选择不同的转换方法
-		var err error
-		if isMapToStruct {
-			// 从 map 到结构体的转换
-			mapValue := srcElem
-			if srcElem.Kind() == reflect.Ptr {
-				mapValue = srcElem.Elem()
-			}
+// 		// 根据类型选择不同的转换方法
+// 		var err error
+// 		if isMapToStruct {
+// 			// 从 map 到结构体的转换
+// 			mapValue := srcElem
+// 			if srcElem.Kind() == reflect.Ptr {
+// 				mapValue = srcElem.Elem()
+// 			}
 
-			// 目标结构体始终是指针的 Elem
-			structValue := destElem.Elem()
-			if isDestElemPtr {
-				// 无需额外操作，destElem 已经是指针
-			} else {
-				// 无需额外操作，structValue 已经是非指针
-			}
+// 			// 目标结构体始终是指针的 Elem
+// 			structValue := destElem.Elem()
+// 			if isDestElemPtr {
+// 				// 无需额外操作，destElem 已经是指针
+// 			} else {
+// 				// 无需额外操作，structValue 已经是非指针
+// 			}
 
-			err = c.convertMapToStruct(mapValue, structValue, mapValue.Type(), structValue.Type())
-		} else if isStructToMap {
-			// 从结构体到 map 的转换
-			structValue := srcElem
-			if srcElem.Kind() == reflect.Ptr {
-				structValue = srcElem.Elem()
-			}
+// 			err = c.convertMapToStruct(mapValue, structValue)
+// 		} else if isStructToMap {
+// 			// 从结构体到 map 的转换
+// 			structValue := srcElem
+// 			if srcElem.Kind() == reflect.Ptr {
+// 				structValue = srcElem.Elem()
+// 			}
 
-			mapValue := destElem.Elem()
-			err = c.convertStructToMap(structValue, mapValue, structValue.Type(), mapValue.Type())
-		} else {
-			// 常规转换 - 为每个元素创建正确的指针
-			var srcPtr interface{}
+// 			mapValue := destElem.Elem()
+// 			err = c.convertStructToMap(structValue, mapValue)
+// 		} else {
+// 			// 常规转换 - 为每个元素创建正确的指针
+// 			var srcPtr interface{}
 
-			// 为源元素创建指针（如果需要）
-			if srcElem.Kind() != reflect.Ptr {
-				// 创建一个临时变量来保存元素值
-				temp := reflect.New(srcElem.Type())
-				temp.Elem().Set(srcElem)
-				srcPtr = temp.Interface()
-			} else {
-				srcPtr = srcElem.Interface()
-			}
+// 			// 为源元素创建指针（如果需要）
+// 			if srcElem.Kind() != reflect.Ptr {
+// 				// 创建一个临时变量来保存元素值
+// 				temp := reflect.New(srcElem.Type())
+// 				temp.Elem().Set(srcElem)
+// 				srcPtr = temp.Interface()
+// 			} else {
+// 				srcPtr = srcElem.Interface()
+// 			}
 
-			// 调用 Convert 进行转换
-			err = c.Convert(srcPtr, destElem.Interface())
-		}
+// 			// 调用 Convert 进行转换
+// 			err = c.Convert(srcPtr, destElem.Interface())
+// 		}
 
-		if err != nil {
-			return fmt.Errorf("转换切片元素 %d 失败: %s", i, err)
-		}
+// 		if err != nil {
+// 			return fmt.Errorf("转换切片元素 %d 失败: %s", i, err)
+// 		}
 
-		// 将转换后的元素设置到目标切片中
-		if isDestElemPtr {
-			// 如果目标元素类型是指针，直接设置
-			newSlice.Index(i).Set(destElem)
-		} else {
-			// 如果目标元素类型不是指针，设置 Elem 的值
-			newSlice.Index(i).Set(destElem.Elem())
-		}
-	}
+// 		// 将转换后的元素设置到目标切片中
+// 		if isDestElemPtr {
+// 			// 如果目标元素类型是指针，直接设置
+// 			newSlice.Index(i).Set(destElem)
+// 		} else {
+// 			// 如果目标元素类型不是指针，设置 Elem 的值
+// 			newSlice.Index(i).Set(destElem.Elem())
+// 		}
+// 	}
 
-	// 设置新切片到目标切片
-	c.unsafeSetFieldValue(destValue, newSlice)
+// 	// 设置新切片到目标切片
+// 	c.unsafeSetFieldValue(destValue, newSlice)
 
-	return nil
-}
+// 	return nil
+// }
 
 // canConvert 判断是否可以进行类型转换
 func (c *Converter) canConvert(srcType, destType reflect.Type) bool {
@@ -799,10 +875,13 @@ func isNumeric(kind reflect.Kind) bool {
 }
 
 // convertValue 将值从一种类型转换为另一种类型
-func (c *Converter) convertValue(value interface{}, srcType, destType reflect.Type) (interface{}, error) {
+func (c *Converter) convertValue(value reflect.Value, srcType, destType reflect.Type) (interface{}, error) {
 	// 检查空值
-	if value == nil {
-		return nil, nil
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
+		if value.IsNil() {
+			return nil, nil
+		}
 	}
 
 	// 获取目标类型的 Kind
@@ -832,21 +911,21 @@ func (c *Converter) convertValue(value interface{}, srcType, destType reflect.Ty
 
 	// 如果源是指针，获取它指向的值
 	if srcKind == reflect.Ptr {
-		v := reflect.ValueOf(value)
-		if v.IsNil() {
+		//v := reflect.ValueOf(value)
+		if value.IsNil() {
 			return nil, nil
 		}
-		elem := v.Elem().Interface()
-		return c.convertValue(elem, reflect.TypeOf(elem), destType)
+		elem := value.Elem()
+		return c.convertValue(elem, elem.Type(), destType)
 	}
 
 	// 使用原生reflect进行值转换
-	srcReflectVal := reflect.ValueOf(value)
+	//srcReflectVal := reflect.ValueOf(value)
 
 	// 字符串类型转换
 	if destKind == reflect.String {
 		// 任何类型都可以转换为字符串
-		return fmt.Sprintf("%v", value), nil
+		return fmt.Sprintf("%v", value.Interface()), nil
 	}
 
 	// 数值类型转换
@@ -857,7 +936,7 @@ func (c *Converter) convertValue(value interface{}, srcType, destType reflect.Ty
 		switch srcKind {
 		case reflect.String:
 			// 字符串转数值
-			strVal := srcReflectVal.String()
+			strVal := value.String()
 			switch destKind {
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 				var intVal int64
@@ -883,13 +962,13 @@ func (c *Converter) convertValue(value interface{}, srcType, destType reflect.Ty
 			}
 		default:
 			// 数值类型之间的转换
-			switch srcReflectVal.Kind() {
+			switch value.Kind() {
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				val = srcReflectVal.Int()
+				val = value.Int()
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				val = srcReflectVal.Uint()
+				val = value.Uint()
 			case reflect.Float32, reflect.Float64:
-				val = srcReflectVal.Float()
+				val = value.Float()
 			default:
 				return nil, errors.New("无法转换为数值类型")
 			}
@@ -1026,35 +1105,18 @@ func (c *Converter) convertValue(value interface{}, srcType, destType reflect.Ty
 		sourceValue := value
 
 		// 从布尔值转换
-		if b, ok := sourceValue.(bool); ok {
-			return b, nil
-		}
-		// 从整数转换 (0 为 false, 非 0 为 true)
-		if i, ok := sourceValue.(int64); ok {
-			return i != 0, nil
-		} else if i, ok := sourceValue.(int); ok {
-			return i != 0, nil
-		} else if i, ok := sourceValue.(int32); ok {
-			return i != 0, nil
-		}
-		// 从无符号整数转换
-		if u, ok := sourceValue.(uint64); ok {
-			return u != 0, nil
-		} else if u, ok := sourceValue.(uint); ok {
-			return u != 0, nil
-		} else if u, ok := sourceValue.(uint32); ok {
-			return u != 0, nil
-		}
-		// 从浮点数转换 (0.0 为 false, 非 0.0 为 true)
-		if f, ok := sourceValue.(float64); ok {
-			return f != 0.0, nil
-		} else if f, ok := sourceValue.(float32); ok {
-			return f != 0.0, nil
-		}
-		// 从字符串转换
-		if s, ok := sourceValue.(string); ok {
-			s = strings.ToLower(s)
-			return s == "true" || s == "yes" || s == "1" || s == "t" || s == "y", nil
+		switch sourceValue.Kind() {
+		case reflect.Bool:
+			return sourceValue.Bool(), nil
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return sourceValue.Int() != 0, nil
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			return sourceValue.Uint() != 0, nil
+		case reflect.Float32, reflect.Float64:
+			return sourceValue.Float() != 0, nil
+		case reflect.String:
+			s := sourceValue.String()
+			return strings.ToLower(s) == "true" || strings.ToLower(s) == "yes" || strings.ToLower(s) == "1" || strings.ToLower(s) == "t" || strings.ToLower(s) == "y", nil
 		}
 	}
 

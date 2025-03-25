@@ -65,7 +65,7 @@ func TestConverter(t *testing.T) {
 
 	var employees []*Employee
 
-	err = converter.ConvertSlice(&persons, &employees)
+	err = Cast(&employees, &persons)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,7 +365,7 @@ func testComplexSliceConversion(t *testing.T, converter *Converter) {
 	var targets []*ProductTarget
 
 	// 转换切片
-	err := converter.ConvertSlice(&sources, &targets)
+	err := Cast(&targets, &sources)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,7 +434,7 @@ func TestSliceConversions(t *testing.T) {
 		}
 		var dst []PersonB
 
-		err := Cast(&src, &dst)
+		err := Cast(&dst, &src)
 
 		if err != nil {
 			t.Fatal(err)
@@ -453,7 +453,7 @@ func TestSliceConversions(t *testing.T) {
 		}
 		var dst []PersonB
 
-		err := Cast(&src, &dst)
+		err := Cast(&dst, &src)
 
 		if err != nil {
 			t.Fatal(err)
@@ -472,7 +472,7 @@ func TestSliceConversions(t *testing.T) {
 		}
 		var dst []*PersonB
 
-		err := Cast(&src, &dst)
+		err := Cast(&dst, &src)
 
 		if err != nil {
 			t.Fatal(err)
@@ -491,7 +491,7 @@ func TestSliceConversions(t *testing.T) {
 		}
 		var dst []*PersonB
 
-		err := Cast(&src, &dst)
+		err := Cast(&dst, &src)
 
 		if err != nil {
 			t.Fatal(err)
@@ -614,7 +614,7 @@ func TestPerformance3(t *testing.T) {
 
 	var b []*Person2
 
-	err := Cast(&a, &b)
+	err := Cast(&b, a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -661,4 +661,33 @@ func Test(t *testing.T) {
 	var p2 P2
 	Cast(&p2, p1)
 	fmt.Println("ok")
+}
+
+func TestMap(t *testing.T) {
+	a := map[string][]map[string]string{
+		"a": {
+			{"name": "张三", "age": "30"},
+			{"name": "李四", "age": "25"},
+			{"name": "王五", "age": "35"},
+		},
+		"b": {
+			{"name": "张三", "age": "30"},
+			{"name": "李四", "age": "25"},
+			{"name": "王五", "age": "35"},
+		},
+	}
+
+	type Person struct {
+		Name string `json:"name"`
+		Age  string `json:"age"`
+	}
+
+	var b map[string][]Person
+
+	err := Cast(&b, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(b)
 }
