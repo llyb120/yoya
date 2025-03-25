@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	r "github.com/goccy/go-reflect"
+	rf "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/lsx"
 )
 
@@ -66,7 +66,7 @@ func (f *future) Get(timeout time.Duration) (any, error) {
 }
 
 func Async[T any](fn any) func(...any) *T {
-	fv := reflect.ValueOf(fn)
+	fv := rf.ValueOf(fn)
 	ft := fv.Type()
 	return func(args ...any) (ptrResult *T) {
 		future := &future{exprtime: time.Now().Add(5 * time.Minute)}
@@ -84,9 +84,9 @@ func Async[T any](fn any) func(...any) *T {
 				future.done.Store(true)
 			}()
 
-			in := make([]reflect.Value, len(args))
+			in := make([]rf.Value, len(args))
 			for i, arg := range args {
-				in[i] = reflect.ValueOf(arg)
+				in[i] = rf.ValueOf(arg)
 			}
 
 			// 类型检查
@@ -229,9 +229,9 @@ func Await(objs ...any) error {
 			continue
 		}
 		// 如果是数组，展开
-		tp := r.TypeOf(e)
-		if tp.Kind() == r.Array || tp.Kind() == r.Slice {
-			val := r.ValueOf(e)
+		tp := rf.TypeOf(e)
+		if tp.Kind() == rf.Array || tp.Kind() == rf.Slice {
+			val := rf.ValueOf(e)
 			for i := 0; i < val.Len(); i++ {
 				f := futureHolder.loadAndDelete(val.Index(i).Interface())
 				if f != nil {
