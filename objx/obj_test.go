@@ -2,6 +2,7 @@ package objx
 
 import (
 	"fmt"
+	"github.com/llyb120/yoya/syncx"
 	"testing"
 	"time"
 )
@@ -14,13 +15,17 @@ func TestWalk(t *testing.T) {
 	var item = map[string][]Person{
 		"name": {{Name: "张三", Age: 30}, {Name: "李四", Age: 25}},
 	}
+	now := time.Now()
 	Walk(item, func(k any, v any) any {
 		if k == "Name" {
-			time.Sleep(5 * time.Second)
-			return "fuck"
+			return syncx.Async_0_1(func() string {
+				time.Sleep(5 * time.Second)
+				return "fuck"
+			})()
 		}
 		return nil
 	})
 
 	fmt.Println(item)
+	fmt.Println(time.Since(now))
 }

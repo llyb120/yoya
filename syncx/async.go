@@ -10,7 +10,6 @@ import (
 	"time"
 
 	rf "github.com/goccy/go-reflect"
-	"github.com/llyb120/yoya/lsx"
 )
 
 type awaitOption int
@@ -209,6 +208,10 @@ func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 	}
 }
 
+func CanAwait(obj any) bool {
+	return futureHolder.contains(obj)
+}
+
 func Await(objs ...any) error {
 	var timeout time.Duration = 0
 	var shouldWaitAll = false
@@ -230,6 +233,9 @@ func Await(objs ...any) error {
 		}
 		// 如果是数组，展开
 		tp := rf.TypeOf(e)
+		if tp == nil {
+			continue
+		}
 		if tp.Kind() == rf.Array || tp.Kind() == rf.Slice {
 			val := rf.ValueOf(e)
 			for i := 0; i < val.Len(); i++ {
@@ -254,18 +260,20 @@ func Await(objs ...any) error {
 
 	if shouldWaitAll {
 		mps := futureHolder.loadAndDeleteWithGid()
-		futures = append(futures, lsx.Vals(mps)...)
+		for _, f := range mps {
+			futures = append(futures, f)
+		}
 	}
 
 	if len(futures) > 1 {
 		var g Group
-		lsx.For(futures, func(f *future, _ int) bool {
+		for _, f := range futures {
+			f := f
 			g.Go(func() error {
 				_, err := f.Get(timeout)
 				return err
 			})
-			return true
-		})
+		}
 		return g.Wait(timeout)
 
 	} else if len(futures) == 1 {

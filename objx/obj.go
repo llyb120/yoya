@@ -2,6 +2,7 @@ package objx
 
 import (
 	"fmt"
+	"github.com/llyb120/yoya/syncx"
 	"runtime"
 
 	reflect "github.com/goccy/go-reflect"
@@ -55,12 +56,18 @@ func walk(dest any, fn walkFunc, wg *walkPool) {
 		for _, k := range v.MapKeys() {
 			kk := k.Interface()
 			vv := v.MapIndex(k)
+			res := fn(kk, vv.Interface())
+			canAwait := syncx.CanAwait(res)
 			wg.Go(func() {
-				res := fn(kk, vv.Interface())
+				_ = syncx.Await(res)
 				if res != Unchanged && res != nil {
 					wg.Lock()
 					defer wg.Unlock()
-					v.SetMapIndex(k, reflect.ValueOf(res))
+					if canAwait {
+						vv.Set(reflect.ValueOf(res).Elem())
+					} else {
+						vv.Set(reflect.ValueOf(res))
+					}
 				}
 			})
 			walk(vv, fn, wg)
@@ -69,12 +76,18 @@ func walk(dest any, fn walkFunc, wg *walkPool) {
 		for i := 0; i < v.Len(); i++ {
 			i := i
 			vv := v.Index(i)
+			res := fn(i, vv.Interface())
+			canAwait := syncx.CanAwait(res)
 			wg.Go(func() {
-				res := fn(i, vv.Interface())
+				_ = syncx.Await(res)
 				if res != Unchanged && res != nil {
 					wg.Lock()
 					defer wg.Unlock()
-					vv.Set(reflect.ValueOf(res))
+					if canAwait {
+						vv.Set(reflect.ValueOf(res).Elem())
+					} else {
+						vv.Set(reflect.ValueOf(res))
+					}
 				}
 			})
 			walk(vv, fn, wg)
@@ -83,12 +96,18 @@ func walk(dest any, fn walkFunc, wg *walkPool) {
 		for i := 0; i < v.NumField(); i++ {
 			i := i
 			vv := v.Field(i)
+			res := fn(v.Type().Field(i).Name, vv.Interface())
+			canAwait := syncx.CanAwait(res)
 			wg.Go(func() {
-				res := fn(v.Type().Field(i).Name, vv.Interface())
+				_ = syncx.Await(res)
 				if res != Unchanged && res != nil {
 					wg.Lock()
 					defer wg.Unlock()
-					vv.Set(reflect.ValueOf(res))
+					if canAwait {
+						vv.Set(reflect.ValueOf(res).Elem())
+					} else {
+						vv.Set(reflect.ValueOf(res))
+					}
 				}
 			})
 			walk(vv, fn, wg)

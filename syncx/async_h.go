@@ -33,6 +33,13 @@ func (h *asyncHolder) save(ptrResult any, f *future) {
 	h.indexMp[ptrResult] = goid
 }
 
+func (h *asyncHolder) contains(ptrResult any) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	_, ok := h.indexMp[ptrResult]
+	return ok
+}
+
 func (h *asyncHolder) loadAndDelete(ptrResult any) *future {
 	h.mu.Lock()
 	defer h.mu.Unlock()
