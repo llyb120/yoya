@@ -3,6 +3,7 @@ package objx
 import (
 	"fmt"
 	"testing"
+	"time"
 )
 
 func TestWalk(t *testing.T) {
@@ -15,6 +16,7 @@ func TestWalk(t *testing.T) {
 	}
 	Walk(item, func(k any, v any) any {
 		if k == "Name" {
+			time.Sleep(5 * time.Second)
 			return "fuck"
 		}
 		return nil

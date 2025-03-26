@@ -12,8 +12,9 @@ import (
 )
 
 type Group struct {
-	wg sync.WaitGroup
-	eg errx.MultiError
+	wg    sync.WaitGroup
+	eg    errx.MultiError
+	limit int
 }
 
 var globalGroupHolder = stlx.NewSyncBimMap[int64, int64]()
@@ -47,6 +48,10 @@ func (g *Group) Wait(timeout ...time.Duration) error {
 		return g.waitWithTimeout(timeout[0])
 	}
 	return g.waitWithTimeout(0)
+}
+
+func (g *Group) SetLimit(limit int) {
+	g.limit = limit
 }
 
 func (g *Group) waitWithTimeout(timeout time.Duration) error {
