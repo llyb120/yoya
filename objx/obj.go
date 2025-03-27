@@ -70,7 +70,14 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 			if wg != nil {
 				wg.Go(func() {
 					f := any(fn).(asyncWalkFunc)
-					res := f(v.Addr().Interface(), kk, vv.Interface())
+					var ref reflect.Value
+					if v.CanAddr() {
+						ref = v.Addr()
+					} else {
+						ref = reflect.New(v.Type())
+						ref.Elem().Set(v)
+					}
+					res := f(ref, kk, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
@@ -97,7 +104,14 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 			if wg != nil {
 				wg.Go(func() {
 					f := any(fn).(asyncWalkFunc)
-					res := f(v.Addr().Interface(), i, vv.Interface())
+					var ref reflect.Value
+					if v.CanAddr() {
+						ref = v.Addr()
+					} else {
+						ref = reflect.New(v.Type())
+						ref.Elem().Set(v)
+					}
+					res := f(ref, i, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
@@ -124,7 +138,14 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 			if wg != nil {
 				wg.Go(func() {
 					f := any(fn).(asyncWalkFunc)
-					res := f(v.Addr().Interface(), v.Type().Field(i).Name, vv.Interface())
+					var ref reflect.Value
+					if v.CanAddr() {
+						ref = v.Addr()
+					} else {
+						ref = reflect.New(v.Type())
+						ref.Elem().Set(v)
+					}
+					res := f(ref, v.Type().Field(i).Name, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
