@@ -34,8 +34,8 @@ func Assign[T comparable, K0 any, K1 any](dest map[T]K0, source map[T]K1) {
 
 var Unchanged = &struct{}{}
 
-type walkFunc = func(k any, v any) any
-type asyncWalkFunc = func(k any, v any) syncx.AsyncFn
+type walkFunc = func(s any, k any, v any) any
+type asyncWalkFunc = func(s any, k any, v any) syncx.AsyncFn
 
 func Walk[T walkFunc | asyncWalkFunc](dest any, fn T) {
 	var isAsync bool
@@ -70,7 +70,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 			if wg != nil {
 				wg.Go(func() {
 					f := any(fn).(asyncWalkFunc)
-					res := f(kk, vv.Interface())
+					res := f(v.Addr().Interface(), kk, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
@@ -83,7 +83,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 				})
 			} else {
 				f := any(fn).(walkFunc)
-				res := f(kk, vv.Interface())
+				res := f(v.Addr().Interface(), kk, vv.Interface())
 				if res != Unchanged && res != nil {
 					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
 				}
@@ -97,7 +97,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 			if wg != nil {
 				wg.Go(func() {
 					f := any(fn).(asyncWalkFunc)
-					res := f(i, vv.Interface())
+					res := f(v.Addr().Interface(), i, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
@@ -110,7 +110,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 				})
 			} else {
 				f := any(fn).(walkFunc)
-				res := f(i, vv.Interface())
+				res := f(v.Addr().Interface(), i, vv.Interface())
 				if res != Unchanged && res != nil {
 					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
 				}
@@ -124,7 +124,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 			if wg != nil {
 				wg.Go(func() {
 					f := any(fn).(asyncWalkFunc)
-					res := f(v.Type().Field(i).Name, vv.Interface())
+					res := f(v.Addr().Interface(), v.Type().Field(i).Name, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
@@ -137,7 +137,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 				})
 			} else {
 				f := any(fn).(walkFunc)
-				res := f(v.Type().Field(i).Name, vv.Interface())
+				res := f(v.Addr().Interface(), v.Type().Field(i).Name, vv.Interface())
 				if res != Unchanged && res != nil {
 					// 可以设置才设置
 					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
