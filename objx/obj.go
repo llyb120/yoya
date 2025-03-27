@@ -77,7 +77,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 						ref = reflect.New(v.Type())
 						ref.Elem().Set(v)
 					}
-					res := f(ref, kk, vv.Interface())
+					res := f(ref.Interface(), kk, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
@@ -97,7 +97,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 					ref = reflect.New(v.Type())
 					ref.Elem().Set(v)
 				}
-				res := f(ref, kk, vv.Interface())
+				res := f(ref.Interface(), kk, vv.Interface())
 				if res != Unchanged && res != nil {
 					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
 				}
@@ -118,7 +118,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 						ref = reflect.New(v.Type())
 						ref.Elem().Set(v)
 					}
-					res := f(ref, i, vv.Interface())
+					res := f(ref.Interface(), i, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
@@ -138,7 +138,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 					ref = reflect.New(v.Type())
 					ref.Elem().Set(v)
 				}
-				res := f(ref, i, vv.Interface())
+				res := f(ref.Interface(), i, vv.Interface())
 				if res != Unchanged && res != nil {
 					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
 				}
@@ -159,7 +159,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 						ref = reflect.New(v.Type())
 						ref.Elem().Set(v)
 					}
-					res := f(ref, v.Type().Field(i).Name, vv.Interface())
+					res := f(ref.Interface(), v.Type().Field(i).Name, vv.Interface())
 					err := syncx.Await(res)
 					if err != nil {
 						return
@@ -179,7 +179,7 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 					ref = reflect.New(v.Type())
 					ref.Elem().Set(v)
 				}
-				res := f(ref, v.Type().Field(i).Name, vv.Interface())
+				res := f(ref.Interface(), v.Type().Field(i).Name, vv.Interface())
 				if res != Unchanged && res != nil {
 					// 可以设置才设置
 					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
