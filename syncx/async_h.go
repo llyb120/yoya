@@ -5,122 +5,62 @@ import (
 	"sync"
 	"time"
 
-	"github.com/petermattis/goid"
+	reflect "github.com/goccy/go-reflect"
 )
+
+type AsyncFn any
 
 var (
-	futureHolder = &asyncHolder{
-		mp:      make(map[int64]map[any]*future),
-		indexMp: make(map[any]int64),
-	}
+	futureHolder = make([]sync.Map, 4)
 )
 
-type asyncHolder struct {
-	mu sync.Mutex
-	mp map[int64]map[any]*future
-	// 某个future的协程索引
-	indexMp map[any]int64
+func saveFuture(ptrResult any, f *future) {
+	var key uintptr
+	key = reflect.ValueOf(ptrResult).Elem().UnsafeAddr()
+	index := key % 4
+	futureHolder[index].Store(key, f)
 }
 
-func (h *asyncHolder) save(ptrResult any, f *future) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	goid := goid.Get()
-	if h.mp[goid] == nil {
-		h.mp[goid] = make(map[any]*future)
-	}
-	h.mp[goid][ptrResult] = f
-	h.indexMp[ptrResult] = goid
-}
-
-func (h *asyncHolder) contains(ptrResult any) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	_, ok := h.indexMp[ptrResult]
-	return ok
-}
-
-func (h *asyncHolder) loadAndDelete(ptrResult any) *future {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	goid, ok := h.indexMp[ptrResult]
+func loadFuture(ptrResult any) *future {
+	var key uintptr
+	key = reflect.ValueOf(ptrResult).Elem().UnsafeAddr()
+	index := key % 4
+	value, ok := futureHolder[index].Load(key)
 	if !ok {
 		return nil
 	}
-	m, ok := h.mp[goid]
-	if !ok {
-		return nil
-	}
-	f, ok := m[ptrResult]
-	if !ok {
-		return nil
-	}
-	delete(m, ptrResult)
-	if len(m) == 0 {
-		delete(h.mp, goid)
-	}
-	delete(h.indexMp, ptrResult)
-	return f
+	return value.(*future)
 }
 
-func (h *asyncHolder) loadAndDeleteWithGid() map[any]*future {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	goid := goid.Get()
-	mp := make(map[any]*future)
-	for k, v := range h.mp[goid] {
-		mp[k] = v
-	}
-	delete(h.mp, goid)
-	return mp
+func deleteFuture(ptrResult any) {
+	var key uintptr
+	key = reflect.ValueOf(ptrResult).Elem().UnsafeAddr()
+	index := key % 4
+	futureHolder[index].Delete(key)
 }
 
-func (h *asyncHolder) clean() {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if len(h.mp) == 0 {
-		return
-	}
-	var newIndexMp = make(map[any]int64)
-	for k, v := range h.indexMp {
-		if h.mp[v] == nil {
-			// 不存在，键不需要保留
-			continue
-		}
-		f := h.mp[v][k]
-		if f == nil || f.done.Load() || f.exprtime.Before(time.Now()) {
-			delete(h.mp[v], k)
-			if len(h.mp[v]) == 0 {
-				delete(h.mp, v)
-			}
-			continue
-		}
-		newIndexMp[k] = v
-	}
-	h.indexMp = newIndexMp
-}
-
-func (h *asyncHolder) cleanGid() {
-	goid := goid.Get()
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	delete(h.mp, goid)
-}
+// func (h *asyncHolder) contains(ptrResult any) bool {
+// 	h.mu.Lock()
+// 	defer h.mu.Unlock()
+// 	_, ok := h.indexMp[ptrResult]
+// 	return ok
+// }
 
 func async[T any](handler func() (T, error)) *T {
 	future := &future{exprtime: time.Now().Add(5 * time.Minute)}
 	var zero T
 	ptrResult := &zero
 	future.wg.Add(1)
-	futureHolder.save(ptrResult, future)
+	saveFuture(ptrResult, future)
 
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
 				future.err = fmt.Errorf("future panic: %v", r)
 			}
-			future.wg.Done()
 			future.done.Store(true)
+			future.wg.Done()
+			deleteFuture(ptrResult)
 		}()
 
 		result, err := handler()
@@ -130,17 +70,6 @@ func async[T any](handler func() (T, error)) *T {
 			*ptrResult = result
 			future.result = result
 		}
-		// if len(result) > 0 {
-		// 	for _, r := range result {
-		// 		val := r.Interface()
-		// 		if err, ok := val.(error); ok {
-		// 			future.err = err
-		// 		} else if value, ok := val.(T); ok {
-		// 			*ptrResult = value
-		// 			future.result = value
-		// 		}
-		// 	}
-		// }
 	}()
 
 	return ptrResult

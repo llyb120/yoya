@@ -16,15 +16,16 @@ func AsyncHighReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 		ptrRef := reflect.New(outType)
 		ptrResult = ptrRef.Interface()
 		future.wg.Add(1)
-		futureHolder.save(ptrResult, future)
+		saveFuture(ptrResult, future)
 
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
 					future.err = fmt.Errorf("future panic: %v", r)
 				}
-				future.wg.Done()
 				future.done.Store(true)
+				future.wg.Done()
+				deleteFuture(ptrResult)
 			}()
 
 			in := make([]reflect.Value, len(args))

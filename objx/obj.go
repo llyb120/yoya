@@ -2,10 +2,11 @@ package objx
 
 import (
 	"fmt"
-	"github.com/llyb120/yoya/syncx"
 	"runtime"
 
 	reflect "github.com/goccy/go-reflect"
+	"github.com/llyb120/yoya/refx"
+	"github.com/llyb120/yoya/syncx"
 )
 
 func Assign[T comparable, K0 any, K1 any](dest map[T]K0, source map[T]K1) {
@@ -31,18 +32,28 @@ func Assign[T comparable, K0 any, K1 any](dest map[T]K0, source map[T]K1) {
 	}
 }
 
-type walkFunc = func(k any, v any) any
-
 var Unchanged = &struct{}{}
 
-func Walk(dest any, fn walkFunc) {
-	var g = newWalkPool(runtime.GOMAXPROCS(0))
-	defer g.Destroy()
+type walkFunc = func(k any, v any) any
+type asyncWalkFunc = func(k any, v any) syncx.AsyncFn
+
+func Walk[T walkFunc | asyncWalkFunc](dest any, fn T) {
+	var isAsync bool
+	if _, ok := any(fn).(asyncWalkFunc); ok {
+		isAsync = true
+	}
+	var g *walkPool
+	if isAsync {
+		g = newWalkPool(runtime.GOMAXPROCS(0))
+		defer g.Destroy()
+	}
 	walk(dest, fn, g)
-	g.Wait()
+	if isAsync {
+		g.Wait()
+	}
 }
 
-func walk(dest any, fn walkFunc, wg *walkPool) {
+func walk[T any](dest any, fn T, wg *walkPool) {
 	var v reflect.Value
 	var ok bool
 	if v, ok = dest.(reflect.Value); !ok {
@@ -56,60 +67,82 @@ func walk(dest any, fn walkFunc, wg *walkPool) {
 		for _, k := range v.MapKeys() {
 			kk := k.Interface()
 			vv := v.MapIndex(k)
-			res := fn(kk, vv.Interface())
-			canAwait := syncx.CanAwait(res)
-			wg.Go(func() {
-				_ = syncx.Await(res)
-				if res != Unchanged && res != nil {
-					wg.Lock()
-					defer wg.Unlock()
-					if canAwait {
-						vv.Set(reflect.ValueOf(res).Elem())
-					} else {
-						vv.Set(reflect.ValueOf(res))
+			if wg != nil {
+				wg.Go(func() {
+					f := any(fn).(asyncWalkFunc)
+					res := f(kk, vv.Interface())
+					err := syncx.Await(res)
+					if err != nil {
+						return
 					}
+					if res != Unchanged && res != nil {
+						wg.Lock()
+						defer wg.Unlock()
+						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
+					}
+				})
+			} else {
+				f := any(fn).(walkFunc)
+				res := f(kk, vv.Interface())
+				if res != Unchanged && res != nil {
+					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
 				}
-			})
+			}
 			walk(vv, fn, wg)
 		}
 	case reflect.Slice:
 		for i := 0; i < v.Len(); i++ {
 			i := i
 			vv := v.Index(i)
-			res := fn(i, vv.Interface())
-			canAwait := syncx.CanAwait(res)
-			wg.Go(func() {
-				_ = syncx.Await(res)
-				if res != Unchanged && res != nil {
-					wg.Lock()
-					defer wg.Unlock()
-					if canAwait {
-						vv.Set(reflect.ValueOf(res).Elem())
-					} else {
-						vv.Set(reflect.ValueOf(res))
+			if wg != nil {
+				wg.Go(func() {
+					f := any(fn).(asyncWalkFunc)
+					res := f(i, vv.Interface())
+					err := syncx.Await(res)
+					if err != nil {
+						return
 					}
+					if res != Unchanged && res != nil {
+						wg.Lock()
+						defer wg.Unlock()
+						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
+					}
+				})
+			} else {
+				f := any(fn).(walkFunc)
+				res := f(i, vv.Interface())
+				if res != Unchanged && res != nil {
+					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
 				}
-			})
+			}
 			walk(vv, fn, wg)
 		}
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
 			i := i
 			vv := v.Field(i)
-			res := fn(v.Type().Field(i).Name, vv.Interface())
-			canAwait := syncx.CanAwait(res)
-			wg.Go(func() {
-				_ = syncx.Await(res)
-				if res != Unchanged && res != nil {
-					wg.Lock()
-					defer wg.Unlock()
-					if canAwait {
-						vv.Set(reflect.ValueOf(res).Elem())
-					} else {
-						vv.Set(reflect.ValueOf(res))
+			if wg != nil {
+				wg.Go(func() {
+					f := any(fn).(asyncWalkFunc)
+					res := f(v.Type().Field(i).Name, vv.Interface())
+					err := syncx.Await(res)
+					if err != nil {
+						return
 					}
+					if res != Unchanged && res != nil {
+						wg.Lock()
+						defer wg.Unlock()
+						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
+					}
+				})
+			} else {
+				f := any(fn).(walkFunc)
+				res := f(v.Type().Field(i).Name, vv.Interface())
+				if res != Unchanged && res != nil {
+					// 可以设置才设置
+					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
 				}
-			})
+			}
 			walk(vv, fn, wg)
 		}
 	}

@@ -3,19 +3,14 @@ package syncx
 import (
 	"context"
 	"fmt"
-	"reflect"
 
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"reflect"
+
 	rf "github.com/goccy/go-reflect"
-)
-
-type awaitOption int
-
-const (
-	WaitAll awaitOption = 0
 )
 
 type future struct {
@@ -72,7 +67,7 @@ func Async[T any](fn any) func(...any) *T {
 		var zero T
 		ptrResult = &zero
 		future.wg.Add(1)
-		futureHolder.save(ptrResult, future)
+		saveFuture(ptrResult, future)
 
 		go func() {
 			defer func() {
@@ -126,15 +121,16 @@ func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 		ptrRef := reflect.New(outType)
 		ptrResult = ptrRef.Interface()
 		future.wg.Add(1)
-		futureHolder.save(ptrResult, future)
+		saveFuture(ptrResult, future)
 
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
 					future.err = fmt.Errorf("future panic: %v", r)
 				}
-				future.wg.Done()
 				future.done.Store(true)
+				future.wg.Done()
+				deleteFuture(ptrResult)
 			}()
 
 			in := make([]reflect.Value, len(args))
@@ -208,13 +204,12 @@ func AsyncReflect(fn reflect.Value, outType reflect.Type) func(...any) any {
 	}
 }
 
-func CanAwait(obj any) bool {
-	return futureHolder.contains(obj)
-}
+// func CanAwait(obj any) bool {
+// 	return futureHolder.contains(obj)
+// }
 
 func Await(objs ...any) error {
 	var timeout time.Duration = 0
-	var shouldWaitAll = false
 
 	// 检查最后一个参数是否为超时时间
 	if len(objs) > 0 {
@@ -227,10 +222,6 @@ func Await(objs ...any) error {
 	// 如果有需要展开的
 	var futures []*future = make([]*future, 0, len(objs))
 	for _, e := range objs {
-		if e == WaitAll {
-			shouldWaitAll = true
-			continue
-		}
 		// 如果是数组，展开
 		tp := rf.TypeOf(e)
 		if tp == nil {
@@ -239,7 +230,7 @@ func Await(objs ...any) error {
 		if tp.Kind() == rf.Array || tp.Kind() == rf.Slice {
 			val := rf.ValueOf(e)
 			for i := 0; i < val.Len(); i++ {
-				f := futureHolder.loadAndDelete(val.Index(i).Interface())
+				f := loadFuture(val.Index(i).Interface())
 				if f != nil {
 					futures = append(futures, f)
 				}
@@ -247,22 +238,15 @@ func Await(objs ...any) error {
 			continue
 		}
 		// 其余的情况
-		f := futureHolder.loadAndDelete(e)
+		f := loadFuture(e)
 		if f != nil {
 			futures = append(futures, f)
 		}
 	}
 
 	// 如果没有参数，等待所有
-	if len(objs) == 0 {
-		shouldWaitAll = true
-	}
-
-	if shouldWaitAll {
-		mps := futureHolder.loadAndDeleteWithGid()
-		for _, f := range mps {
-			futures = append(futures, f)
-		}
+	if len(futures) == 0 {
+		return nil
 	}
 
 	if len(futures) > 1 {
@@ -283,25 +267,4 @@ func Await(objs ...any) error {
 	}
 
 	return nil
-}
-
-func ResetAsync() {
-	futureHolder.cleanGid()
-}
-
-// 清理因失败而过期的future
-func clearFutures() {
-	defer func() {
-		if r := recover(); r != nil {
-			// 30s 后重新运行
-			time.AfterFunc(30*time.Second, func() {
-				go clearFutures()
-			})
-		}
-	}()
-	ticker := time.NewTicker(time.Minute)
-	defer ticker.Stop()
-	for range ticker.C {
-		futureHolder.clean()
-	}
 }

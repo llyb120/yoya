@@ -2,9 +2,10 @@ package objx
 
 import (
 	"fmt"
-	"github.com/llyb120/yoya/syncx"
 	"testing"
 	"time"
+
+	"github.com/llyb120/yoya/syncx"
 )
 
 func TestWalk(t *testing.T) {
@@ -16,7 +17,7 @@ func TestWalk(t *testing.T) {
 		"name": {{Name: "张三", Age: 30}, {Name: "李四", Age: 25}},
 	}
 	now := time.Now()
-	Walk(item, func(k any, v any) any {
+	Walk(item, func(k any, v any) syncx.AsyncFn {
 		if k == "Name" {
 			return syncx.Async_0_1(func() string {
 				time.Sleep(5 * time.Second)
