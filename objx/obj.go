@@ -2,11 +2,9 @@ package objx
 
 import (
 	"fmt"
-	"runtime"
 
 	reflect "github.com/goccy/go-reflect"
-	"github.com/llyb120/yoya/refx"
-	"github.com/llyb120/yoya/syncx"
+	"github.com/llyb120/yoya/errx"
 )
 
 func Assign[T comparable, K0 any, K1 any](dest map[T]K0, source map[T]K1) {
@@ -32,160 +30,42 @@ func Assign[T comparable, K0 any, K1 any](dest map[T]K0, source map[T]K1) {
 	}
 }
 
-var Unchanged = &struct{}{}
+// 确保某些变量是某种值
+// 参数必须是偶数，第n个参数必须是指针，n+1参数是原始的值
+// 如果转换成功，则会返回true
+// 如果任意一个转换失败，则会返回false
+// 例如 a = 1 b = 2 c = 3 a/b/c均为any类型
+// var d,e,f int
+// Ensure(&d, a, &e, b, &f, c)
+func Ensure(objs ...any) bool {
+	// 如果不是偶数，pass
+	if len(objs)%2 != 0 {
+		return false
+	}
 
-type walkFunc = func(s any, k any, v any) any
-type asyncWalkFunc = func(s any, k any, v any) syncx.AsyncFn
-
-func Walk[T walkFunc | asyncWalkFunc](dest any, fn T) {
-	var isAsync bool
-	if _, ok := any(fn).(asyncWalkFunc); ok {
-		isAsync = true
+	for i := 0; i < len(objs); i += 2 {
+		if !ensure(objs[i], objs[i+1]) {
+			return false
+		}
 	}
-	var g *walkPool
-	if isAsync {
-		g = newWalkPool(runtime.GOMAXPROCS(0))
-		defer g.Destroy()
-	}
-	walk(dest, fn, g)
-	if isAsync {
-		g.Wait()
-	}
+	return true
 }
 
-func walk[T any](dest any, fn T, wg *walkPool) {
-	var v reflect.Value
-	var ok bool
-	if v, ok = dest.(reflect.Value); !ok {
-		v = reflect.ValueOf(dest)
-	}
-	for v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	switch v.Kind() {
-	case reflect.Map:
-		for _, k := range v.MapKeys() {
-			kk := k.Interface()
-			vv := v.MapIndex(k)
-			if wg != nil {
-				wg.Go(func() {
-					f := any(fn).(asyncWalkFunc)
-					var ref reflect.Value
-					if v.CanAddr() {
-						ref = v.Addr()
-					} else {
-						ref = reflect.New(v.Type())
-						ref.Elem().Set(v)
-					}
-					res := f(ref.Interface(), kk, vv.Interface())
-					err := syncx.Await(res)
-					if err != nil {
-						return
-					}
-					if res != Unchanged && res != nil {
-						wg.Lock()
-						defer wg.Unlock()
-						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
-					}
-				})
-			} else {
-				f := any(fn).(walkFunc)
-				var ref reflect.Value
-				if v.CanAddr() {
-					ref = v.Addr()
-				} else {
-					ref = reflect.New(v.Type())
-					ref.Elem().Set(v)
-				}
-				res := f(ref.Interface(), kk, vv.Interface())
-				if res != Unchanged && res != nil {
-					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
-				}
-			}
-			walk(vv, fn, wg)
+func ensure(obj, target any) bool {
+	err := errx.Try(func() error {
+		// 第一个必须是一个指针
+		vf := reflect.ValueOf(obj)
+		if vf.Kind() != reflect.Ptr {
+			return fmt.Errorf("not paired")
 		}
-	case reflect.Slice:
-		for i := 0; i < v.Len(); i++ {
-			i := i
-			vv := v.Index(i)
-			if wg != nil {
-				wg.Go(func() {
-					f := any(fn).(asyncWalkFunc)
-					var ref reflect.Value
-					if v.CanAddr() {
-						ref = v.Addr()
-					} else {
-						ref = reflect.New(v.Type())
-						ref.Elem().Set(v)
-					}
-					res := f(ref.Interface(), i, vv.Interface())
-					err := syncx.Await(res)
-					if err != nil {
-						return
-					}
-					if res != Unchanged && res != nil {
-						wg.Lock()
-						defer wg.Unlock()
-						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
-					}
-				})
-			} else {
-				f := any(fn).(walkFunc)
-				var ref reflect.Value
-				if v.CanAddr() {
-					ref = v.Addr()
-				} else {
-					ref = reflect.New(v.Type())
-					ref.Elem().Set(v)
-				}
-				res := f(ref.Interface(), i, vv.Interface())
-				if res != Unchanged && res != nil {
-					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
-				}
-			}
-			walk(vv, fn, wg)
+		targetVf := reflect.ValueOf(target)
+		// 转换成目标类型
+		for targetVf.Kind() == reflect.Ptr || targetVf.Kind() == reflect.Interface {
+			targetVf = targetVf.Elem()
 		}
-	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			i := i
-			vv := v.Field(i)
-			if wg != nil {
-				wg.Go(func() {
-					f := any(fn).(asyncWalkFunc)
-					var ref reflect.Value
-					if v.CanAddr() {
-						ref = v.Addr()
-					} else {
-						ref = reflect.New(v.Type())
-						ref.Elem().Set(v)
-					}
-					res := f(ref.Interface(), v.Type().Field(i).Name, vv.Interface())
-					err := syncx.Await(res)
-					if err != nil {
-						return
-					}
-					if res != Unchanged && res != nil {
-						wg.Lock()
-						defer wg.Unlock()
-						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
-					}
-				})
-			} else {
-				f := any(fn).(walkFunc)
-				var ref reflect.Value
-				if v.CanAddr() {
-					ref = v.Addr()
-				} else {
-					ref = reflect.New(v.Type())
-					ref.Elem().Set(v)
-				}
-				res := f(ref.Interface(), v.Type().Field(i).Name, vv.Interface())
-				if res != Unchanged && res != nil {
-					// 可以设置才设置
-					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
-				}
-			}
-			walk(vv, fn, wg)
-		}
-	}
+		targetElem := targetVf.Convert(vf.Elem().Type())
+		vf.Elem().Set(targetElem)
+		return nil
+	})
+	return err == nil
 }
