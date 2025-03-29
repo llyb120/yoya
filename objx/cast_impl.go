@@ -253,7 +253,7 @@ func (c *Converter) getOrCreateMappingCache(srcType, destType reflect.Type, srcC
 // Convert 将源类型转换为目标类型
 func (c *Converter) Convert(src, dest interface{}) error {
 	// 空值检查
-	if dest == nil {
+	if src == nil || dest == nil {
 		return errors.New("源或目标不能为空")
 	}
 

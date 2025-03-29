@@ -93,6 +93,6 @@ func TestCollect(t *testing.T) {
 			},
 		},
 	}
-	results := Pick(data, "name [age=10,name='张三'] id")
+	results := Pick[string](data, "name [age=10,name='张三'] id")
 	fmt.Printf("%+v\n", results)
 }
