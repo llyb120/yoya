@@ -23,8 +23,21 @@ var BreakWalk = &walkCommand{}
 // 停止遍历子元素
 var BreakWalkSelf = &walkCommand{}
 
-type walkFunc = func(s any, k any, v any) any
-type asyncWalkFunc = func(s any, k any, v any) syncx.AsyncFn
+// type walkFunc = func(s any, k any, v any) any
+// type asyncWalkFunc = func(s any, k any, v any) syncx.AsyncFn
+
+type walkOption int
+
+var (
+	Async walkOption = -1
+	Level walkOption = 1
+)
+
+func test() {
+	Walk(&struct{}{}, func(s, k, v any) any {
+		return nil
+	}, 10*Level)
+}
 
 // 遍历任意对象
 // 因为map和字段的问题，遍历的顺序无法预测，但从外到内可以保证(先序遍历)
@@ -48,23 +61,63 @@ type asyncWalkFunc = func(s any, k any, v any) syncx.AsyncFn
 //	如果函数定义为asyncWalkFunc，则遍历函数会异步执行
 //
 // 除此之外的任何返回值都会被设置到当前遍历的元素上
-func Walk[T walkFunc | asyncWalkFunc](dest any, fn T) {
-	var isAsync bool
-	if _, ok := any(fn).(asyncWalkFunc); ok {
-		isAsync = true
+func Walk(dest any, fn func(s any, k any, v any) any, opts ...walkOption) {
+	var walkCtx = &walkContext{
+		fn: fn,
 	}
-	var g *walkPool
-	if isAsync {
-		g = newWalkPool(runtime.GOMAXPROCS(0))
-		defer g.Destroy()
+	for _, opt := range opts {
+		if opt == Async {
+			walkCtx.isAsync = true
+		}
+		if opt > 0 {
+			walkCtx.level = int(opt)
+		}
 	}
-	walk(dest, fn, g)
-	if isAsync {
-		g.Wait()
+	if walkCtx.isAsync {
+		walkCtx.wg = newWalkPool(runtime.GOMAXPROCS(0))
+		defer walkCtx.wg.Destroy()
+	}
+	walkCtx.walk(dest, 0)
+	if walkCtx.isAsync {
+		walkCtx.wg.Wait()
 	}
 }
 
-func walk[T any](dest any, fn T, wg *walkPool) {
+type walkContext struct {
+	level   int
+	isAsync bool
+	wg      *walkPool
+	fn      func(s any, k any, v any) any
+}
+
+func (w *walkContext) doFunc(ref reflect.Value, k any, v reflect.Value) any {
+	var res any
+	if kk, ok := k.(reflect.Value); ok {
+		k = kk.Interface()
+	}
+	if w.isAsync {
+		w.wg.Go(func() {
+			res = w.fn(ref.Interface(), k, v.Interface())
+			err := syncx.Await(res)
+			if err != nil {
+				return
+			}
+			if res != Unchanged && res != nil {
+				w.wg.Lock()
+				defer w.wg.Unlock()
+				refx.UnsafeSetFieldValue(v, reflect.ValueOf(res).Elem(), true)
+			}
+		})
+	} else {
+		res = w.fn(ref.Interface(), k, v.Interface())
+		if res != Unchanged && res != nil {
+			refx.UnsafeSetFieldValue(v, reflect.ValueOf(res), true)
+		}
+	}
+	return res
+}
+
+func (w *walkContext) walk(dest any, level int) {
 	var v reflect.Value
 	var ok bool
 	if v, ok = dest.(reflect.Value); !ok {
@@ -83,106 +136,48 @@ func walk[T any](dest any, fn T, wg *walkPool) {
 	switch v.Kind() {
 	case reflect.Map:
 		for _, k := range v.MapKeys() {
-			kk := k.Interface()
 			vv := v.MapIndex(k)
-			var res any
-			if wg != nil {
-				wg.Go(func() {
-					f := any(fn).(asyncWalkFunc)
-					res = f(ref.Interface(), kk, vv.Interface())
-					err := syncx.Await(res)
-					if err != nil {
-						return
-					}
-					if res != Unchanged && res != nil {
-						wg.Lock()
-						defer wg.Unlock()
-						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
-					}
-				})
-			} else {
-				f := any(fn).(walkFunc)
-				res = f(ref.Interface(), kk, vv.Interface())
-				if res != Unchanged && res != nil {
-					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
-				}
-			}
+			res := w.doFunc(ref, k, vv)
 			if res == BreakWalkSelf {
 				continue
 			}
 			if res == BreakWalk {
 				return
 			}
-			walk(vv, fn, wg)
+			if w.level <= 0 || level+1 <= w.level {
+				w.walk(vv, level+1)
+			}
 		}
 	case reflect.Slice:
 		for i := 0; i < v.Len(); i++ {
 			i := i
 			vv := v.Index(i)
-			var res any
-			if wg != nil {
-				wg.Go(func() {
-					f := any(fn).(asyncWalkFunc)
-					res = f(ref.Interface(), i, vv.Interface())
-					err := syncx.Await(res)
-					if err != nil {
-						return
-					}
-					if res != Unchanged && res != nil {
-						wg.Lock()
-						defer wg.Unlock()
-						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
-					}
-				})
-			} else {
-				f := any(fn).(walkFunc)
-				res = f(ref.Interface(), i, vv.Interface())
-				if res != Unchanged && res != nil {
-					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
-				}
-			}
+			res := w.doFunc(ref, i, vv)
 			if res == BreakWalkSelf {
 				continue
 			}
 			if res == BreakWalk {
 				return
 			}
-			walk(vv, fn, wg)
+			if w.level <= 0 || level+1 <= w.level {
+				w.walk(vv, level+1)
+			}
 		}
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
 			i := i
 			vv := v.Field(i)
-			var res any
-			if wg != nil {
-				wg.Go(func() {
-					f := any(fn).(asyncWalkFunc)
-					res = f(ref.Interface(), v.Type().Field(i).Name, vv.Interface())
-					err := syncx.Await(res)
-					if err != nil {
-						return
-					}
-					if res != Unchanged && res != nil {
-						wg.Lock()
-						defer wg.Unlock()
-						refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res).Elem(), true)
-					}
-				})
-			} else {
-				f := any(fn).(walkFunc)
-				res = f(ref.Interface(), v.Type().Field(i).Name, vv.Interface())
-				if res != Unchanged && res != nil {
-					// 可以设置才设置
-					refx.UnsafeSetFieldValue(vv, reflect.ValueOf(res), true)
-				}
-			}
+			k := v.Type().Field(i).Name
+			res := w.doFunc(ref, k, vv)
 			if res == BreakWalkSelf {
 				continue
 			}
 			if res == BreakWalk {
 				return
 			}
-			walk(vv, fn, wg)
+			if w.level <= 0 || level+1 <= w.level {
+				w.walk(vv, level+1)
+			}
 		}
 	}
 }

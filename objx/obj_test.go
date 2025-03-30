@@ -17,15 +17,20 @@ func TestWalk(t *testing.T) {
 		"name": {{Name: "张三", Age: 30}, {Name: "李四", Age: 25}},
 	}
 	now := time.Now()
-	Walk(item, func(s, k any, v any) syncx.AsyncFn {
+	Walk(item, func(s, k any, v any) any {
 		if k == "Name" {
-			return syncx.Async_0_1(func() string {
-				time.Sleep(5 * time.Second)
-				return "fuck"
-			})()
+			var fn = syncx.Async_0_1(func() string {
+				time.Sleep(2 * time.Second)
+				return "ok"
+			})
+			res := fn()
+			if err := syncx.Await(res); err != nil {
+				return nil
+			}
+			return res
 		}
 		return nil
-	})
+	}, Async, 1 * Level)
 
 	fmt.Println(item)
 	fmt.Println(time.Since(now))
@@ -95,4 +100,7 @@ func TestCollect(t *testing.T) {
 	}
 	results := Pick[string](data, "name [age=10,name='张三'] id")
 	fmt.Printf("%+v\n", results)
+
+	reuslt2 := Pick[any](data, "id")
+	fmt.Printf("%+v\n", reuslt2)
 }
