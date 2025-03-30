@@ -149,6 +149,24 @@ func Group[T any](arr []T, fn func(T, int) any) [][]T {
 	return result.Vals()
 }
 
+func GroupMap[K comparable, V any](arr []V, fn func(V, int) K) map[K][]V {
+	var result = make(map[K][]V)
+	for i, v := range arr {
+		k := fn(v, i)
+		result[k] = append(result[k], v)
+	}
+	return result
+}
+
+func ToMap[K comparable, V any](arr []V, fn func(V, int) K) map[K]V {
+	var result = make(map[K]V)
+	for i, v := range arr {
+		k := fn(v, i)
+		result[k] = v
+	}
+	return result
+}
+
 func timSort[T any](arr []T, less func(T, T) bool) []T {
 	if len(arr) <= 1 {
 		return arr
