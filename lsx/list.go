@@ -4,8 +4,8 @@ import (
 	// "reflect"
 
 	"fmt"
+	"reflect"
 	"runtime"
-	"strings"
 
 	"github.com/llyb120/yoya/internal"
 	"github.com/llyb120/yoya/objx"
@@ -18,7 +18,6 @@ type lsxOption int
 const (
 	IgnoreNil lsxOption = iota
 	IgnoreEmpty
-	IgnoreBlank
 	Async
 )
 
@@ -30,7 +29,6 @@ var zero = &struct {
 type lsxOptionContext struct {
 	ignoreNil   bool
 	ignoreEmpty bool
-	ignoreBlank bool
 	async       bool
 }
 
@@ -42,8 +40,6 @@ func scanOptions(opts []lsxOption) *lsxOptionContext {
 			ctx.ignoreNil = true
 		case IgnoreEmpty:
 			ctx.ignoreEmpty = true
-		case IgnoreBlank:
-			ctx.ignoreBlank = true
 		case Async:
 			ctx.async = true
 		}
@@ -80,7 +76,7 @@ func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
 		}
 	}
 	// 如果需要过滤
-	if ctx.ignoreNil || ctx.ignoreEmpty || ctx.ignoreBlank {
+	if ctx.ignoreNil || ctx.ignoreEmpty {
 		Filter(&result, func(v R, i int) bool {
 			if ctx.ignoreNil {
 				rv := any(v)
@@ -90,15 +86,11 @@ func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
 			}
 			if ctx.ignoreEmpty {
 				rv := any(v)
-				if rv == "" || rv == nil {
+				if rv == nil {
 					return false
 				}
-			}
-			if ctx.ignoreBlank {
-				if str, ok := any(v).(string); ok {
-					if strings.TrimSpace(str) == "" {
-						return false
-					}
+				if isZero(rv) {
+					return false
 				}
 			}
 			return true
@@ -341,4 +333,21 @@ func timSort[T any](arr []T, less func(T, T) bool) []T {
 	}
 
 	return arr
+}
+
+func isZero[T any](v T) bool {
+	switch v := any(v).(type) {
+	case string:
+		return v == ""
+	case int, int8, int16, int32, int64:
+		return v == 0
+	case uint, uint8, uint16, uint32, uint64:
+		return v == 0
+	case float32, float64:
+		return v == 0
+	case bool:
+		return v == false
+	default:
+		return reflect.ValueOf(v).IsZero()
+	}
 }
