@@ -4,14 +4,15 @@ import (
 	"runtime"
 
 	reflect "github.com/goccy/go-reflect"
+	"github.com/llyb120/yoya/internal"
 	"github.com/llyb120/yoya/refx"
 	"github.com/llyb120/yoya/syncx"
 )
 
 // 这里的空对象是为了对齐内存，不能使用struct{}，这样指针会指向相同的部分从而导致指令出错
 type walkCommand struct {
-	flag bool
-	_    struct{}
+	bool
+	_ struct{}
 }
 
 // 值未发生变化
@@ -32,12 +33,6 @@ var (
 	Async walkOption = -1
 	Level walkOption = 1
 )
-
-func test() {
-	Walk(&struct{}{}, func(s, k, v any) any {
-		return nil
-	}, 10*Level)
-}
 
 // 遍历任意对象
 // 因为map和字段的问题，遍历的顺序无法预测，但从外到内可以保证(先序遍历)
@@ -74,7 +69,7 @@ func Walk(dest any, fn func(s any, k any, v any) any, opts ...walkOption) {
 		}
 	}
 	if walkCtx.isAsync {
-		walkCtx.wg = newWalkPool(runtime.GOMAXPROCS(0))
+		walkCtx.wg = internal.NewThreadPool(runtime.GOMAXPROCS(0))
 		defer walkCtx.wg.Destroy()
 	}
 	walkCtx.walk(dest, 0)
@@ -86,7 +81,7 @@ func Walk(dest any, fn func(s any, k any, v any) any, opts ...walkOption) {
 type walkContext struct {
 	level   int
 	isAsync bool
-	wg      *walkPool
+	wg      *internal.ThreadPool
 	fn      func(s any, k any, v any) any
 }
 

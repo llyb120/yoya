@@ -8,8 +8,8 @@ import (
 
 func TestMap(t *testing.T) {
 	arr := []int{1, 2, 3, 4, 5}
-	result := Map(arr, func(v int, i int) (int, bool) {
-		return v * 2, true
+	result := Map(arr, func(v int, i int) int {
+		return v * 2
 	})
 	if len(result) != len(arr) {
 		t.Errorf("Map result length is not equal to input length")

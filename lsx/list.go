@@ -3,18 +3,106 @@ package lsx
 import (
 	// "reflect"
 
+	"fmt"
+	"runtime"
+	"strings"
+
+	"github.com/llyb120/yoya/internal"
 	"github.com/llyb120/yoya/objx"
 	"github.com/llyb120/yoya/stlx"
+	"github.com/llyb120/yoya/syncx"
 )
 
-func Map[T any, R any](arr []T, fn func(T, int) (R, bool)) []R {
-	result := make([]R, 0, len(arr))
-	for i, v := range arr {
-		r, ok := fn(v, i)
-		if !ok {
-			continue
+type lsxOption int
+
+const (
+	IgnoreNil lsxOption = iota
+	IgnoreEmpty
+	IgnoreBlank
+	Async
+)
+
+var zero = &struct {
+	bool
+	_ struct{}
+}{}
+
+type lsxOptionContext struct {
+	ignoreNil   bool
+	ignoreEmpty bool
+	ignoreBlank bool
+	async       bool
+}
+
+func scanOptions(opts []lsxOption) *lsxOptionContext {
+	ctx := &lsxOptionContext{}
+	for _, opt := range opts {
+		switch opt {
+		case IgnoreNil:
+			ctx.ignoreNil = true
+		case IgnoreEmpty:
+			ctx.ignoreEmpty = true
+		case IgnoreBlank:
+			ctx.ignoreBlank = true
+		case Async:
+			ctx.async = true
 		}
-		result = append(result, r)
+	}
+	return ctx
+}
+
+func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
+	ctx := scanOptions(opts)
+	result := make([]R, 0, len(arr))
+	if ctx.async {
+		var wg = internal.NewThreadPool(runtime.GOMAXPROCS(0))
+		defer wg.Destroy()
+		for i, v := range arr {
+			i := i
+			v := v
+			wg.Go(func() {
+				r := fn(v, i)
+				if err := syncx.Await(r); err != nil {
+					fmt.Println("warn: ", err)
+					return
+				}
+				wg.Lock()
+				defer wg.Unlock()
+				result[i] = r
+			})
+		}
+		wg.Wait()
+	} else {
+		// 同步
+		for i, v := range arr {
+			r := fn(v, i)
+			result = append(result, r)
+		}
+	}
+	// 如果需要过滤
+	if ctx.ignoreNil || ctx.ignoreEmpty || ctx.ignoreBlank {
+		Filter(&result, func(v R, i int) bool {
+			if ctx.ignoreNil {
+				rv := any(v)
+				if rv == nil {
+					return false
+				}
+			}
+			if ctx.ignoreEmpty {
+				rv := any(v)
+				if rv == "" || rv == nil {
+					return false
+				}
+			}
+			if ctx.ignoreBlank {
+				if str, ok := any(v).(string); ok {
+					if strings.TrimSpace(str) == "" {
+						return false
+					}
+				}
+			}
+			return true
+		})
 	}
 	return result
 }

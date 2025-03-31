@@ -1,11 +1,11 @@
-package objx
+package internal
 
 import (
 	"fmt"
 	"sync"
 )
 
-type walkPool struct {
+type ThreadPool struct {
 	sync.WaitGroup
 	mu    sync.Mutex
 	limit int
@@ -13,8 +13,8 @@ type walkPool struct {
 	stop  chan struct{}
 }
 
-func newWalkPool(limit int) *walkPool {
-	ptr := &walkPool{
+func NewThreadPool(limit int) *ThreadPool {
+	ptr := &ThreadPool{
 		limit: limit,
 		task:  make(chan func(), limit),
 		stop:  make(chan struct{}),
@@ -44,20 +44,20 @@ func newWalkPool(limit int) *walkPool {
 	return ptr
 }
 
-func (p *walkPool) Go(fn func()) {
+func (p *ThreadPool) Go(fn func()) {
 	p.WaitGroup.Add(1)
 	p.task <- fn
 }
 
-func (p *walkPool) Destroy() {
+func (p *ThreadPool) Destroy() {
 	close(p.task)
 	close(p.stop)
 }
 
-func (p *walkPool) Lock() {
+func (p *ThreadPool) Lock() {
 	p.mu.Lock()
 }
 
-func (p *walkPool) Unlock() {
+func (p *ThreadPool) Unlock() {
 	p.mu.Unlock()
 }
