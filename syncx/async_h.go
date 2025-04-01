@@ -23,7 +23,12 @@ func saveFuture(ptrResult any, f *future) {
 
 func loadFuture(ptrResult any) *future {
 	var key uintptr
-	key = reflect.ValueOf(ptrResult).Elem().UnsafeAddr()
+	rf := reflect.ValueOf(ptrResult).Elem()
+	if !rf.CanAddr() {
+		// 有可能不是需要等待的对象
+		return nil
+	}
+	key = rf.UnsafeAddr()
 	index := key % 4
 	value, ok := futureHolder[index].Load(key)
 	if !ok {
