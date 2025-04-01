@@ -119,7 +119,7 @@ func Filter[T any](arr *[]T, fn func(T, int) bool) {
 }
 
 func Find[T any](arr []T, fn func(T, int) bool) (T, bool) {
-	index := FindIndex(arr, fn)
+	index := Pos(arr, fn)
 	if index == -1 {
 		var zero T
 		return zero, false
@@ -127,13 +127,22 @@ func Find[T any](arr []T, fn func(T, int) bool) (T, bool) {
 	return arr[index], true
 }
 
-func FindIndex[T any](arr []T, fn func(T, int) bool) int {
+func Pos[T any](arr []T, fn func(T, int) bool) int {
 	for i, v := range arr {
 		if fn(v, i) {
 			return i
 		}
 	}
 	return -1
+}
+
+func Has[T comparable](arr []T, target T) bool {
+	for _, v := range arr {
+		if v == target {
+			return true
+		}
+	}
+	return false
 }
 
 func Reduce[T any, R any](arr []T, fn func(R, T) R, initial R) R {
