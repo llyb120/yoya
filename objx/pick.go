@@ -2,6 +2,7 @@ package objx
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/goccy/go-reflect"
@@ -29,18 +30,59 @@ func (p *picker[T]) matchProps(kvMap map[string]any, keyWrapper *keyWrapper) {
 	for k, prop := range node.props {
 		if vv, ok := kvMap[k]; ok {
 			switch prop.op {
+			case opErr:
+				return
 			case opEqual:
-				if toString(vv) == prop.value {
-					keyWrapper.propsMatched++
-				}
-			case opLike:
-				if strings.Contains(toString(vv), prop.value) {
-					keyWrapper.propsMatched++
-				}
-			case opNot:
 				if toString(vv) != prop.value {
-					keyWrapper.propsMatched++
+					return
 				}
+				keyWrapper.propsMatched++
+			case opLike:
+				if !strings.Contains(toString(vv), prop.value.(string)) {
+					return
+				}
+				keyWrapper.propsMatched++
+			case opNot:
+				if toString(vv) == prop.value {
+					return
+				}
+				keyWrapper.propsMatched++
+			case opGt:
+				val, ok := toFloat64(vv)
+				if !ok {
+					return
+				}
+				if val <= prop.value.(float64) {
+					return
+				}
+				keyWrapper.propsMatched++
+			case opGe:
+				val, ok := toFloat64(vv)
+				if !ok {
+					return
+				}
+				if val < prop.value.(float64) {
+					return
+				}
+				keyWrapper.propsMatched++
+			case opLt:
+				val, ok := toFloat64(vv)
+				if !ok {
+					return
+				}
+				if val >= prop.value.(float64) {
+					return
+				}
+				keyWrapper.propsMatched++
+			case opLe:
+				val, ok := toFloat64(vv)
+				if !ok {
+					return
+				}
+				if val > prop.value.(float64) {
+					return
+				}
+				keyWrapper.propsMatched++
 			}
 		}
 	}
@@ -268,4 +310,37 @@ func toString(value any) string {
 	default:
 		return ""
 	}
+}
+
+func toFloat64(value any) (float64, bool) {
+	switch v := value.(type) {
+	case int:
+		return float64(v), true
+	case int8:
+		return float64(v), true
+	case int16:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case uint:
+		return float64(v), true
+	case uint8:
+		return float64(v), true
+	case uint16:
+		return float64(v), true
+	case uint32:
+		return float64(v), true
+	case uint64:
+		return float64(v), true
+	case float32:
+		return float64(v), true
+	case float64:
+		return v, true
+	case string:
+		f, err := strconv.ParseFloat(v, 64)
+		return f, err == nil
+	}
+	return 0, false
 }
