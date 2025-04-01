@@ -90,6 +90,11 @@ func TestCollect(t *testing.T) {
 				"age":  10,
 				"name": "张三",
 				"id":   1,
+				"child": []map[string]any {
+					{
+						"child": 1,
+					},
+				},
 			},
 			map[string]any{
 				"age":  10,
@@ -101,6 +106,6 @@ func TestCollect(t *testing.T) {
 	results := Pick[string](data, "name [age=10,name='张三'] id")
 	fmt.Printf("%+v\n", results)
 
-	reuslt2 := Pick[any](data, "id")
+	reuslt2 := Pick[any](data, "child")
 	fmt.Printf("%+v\n", reuslt2)
 }

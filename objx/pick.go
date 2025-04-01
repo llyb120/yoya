@@ -8,9 +8,12 @@ import (
 )
 
 type keyWrapper struct {
-	key          any
-	keyMatched   map[int]bool
-	propsMatched map[int]int
+	key any
+	// keyMatched   map[int]bool
+	// propsMatched map[int]int
+	keyMatched   bool
+	propsMatched int
+	matchPos     int // 已经match的位置，从0开始（目标对象的时候=len(nodes)）
 }
 
 type picker[T any] struct {
@@ -21,57 +24,72 @@ type picker[T any] struct {
 	result []T
 }
 
-func (p *picker[T]) matchProps(kvMap map[string]any) {
-	for i, node := range p.nodes {
-		for k, prop := range node.props {
-			if vv, ok := kvMap[k]; ok {
-				switch prop.op {
-				case opEqual:
-					if toString(vv) == prop.value {
-						p.stack[len(p.stack)-1].propsMatched[i]++
-					}
-				case opLike:
-					if strings.Contains(toString(vv), prop.value) {
-						p.stack[len(p.stack)-1].propsMatched[i]++
-					}
-				case opNot:
-					if toString(vv) != prop.value {
-						p.stack[len(p.stack)-1].propsMatched[i]++
-					}
+func (p *picker[T]) matchProps(kvMap map[string]any, keyWrapper *keyWrapper) {
+	node := p.nodes[keyWrapper.matchPos]
+	for k, prop := range node.props {
+		if vv, ok := kvMap[k]; ok {
+			switch prop.op {
+			case opEqual:
+				if toString(vv) == prop.value {
+					keyWrapper.propsMatched++
+				}
+			case opLike:
+				if strings.Contains(toString(vv), prop.value) {
+					keyWrapper.propsMatched++
+				}
+			case opNot:
+				if toString(vv) != prop.value {
+					keyWrapper.propsMatched++
 				}
 			}
 		}
 	}
 }
 
-func (p *picker[T]) checkAllPropsMatched() bool {
-	var pos = -1
-	for _, keyWrapper := range p.stack {
-		if keyWrapper.keyMatched[pos+1] && keyWrapper.propsMatched[pos+1] >= len(p.nodes[pos+1].props) {
-			pos++
-			if pos == len(p.nodes)-1 {
-				return true
-			}
-		}
+// func (p *picker[T]) checkAllPropsMatched() bool {
+// 	var pos = -1
+// 	for _, keyWrapper := range p.stack {
+// 		if keyWrapper.keyMatched[pos+1] && keyWrapper.propsMatched[pos+1] >= len(p.nodes[pos+1].props) {
+// 			pos++
+// 			if pos == len(p.nodes)-1 {
+// 				return true
+// 			}
+// 		}
+// 	}
+// 	return false
+// }
+
+func (p *picker[T]) checkMatchPos(keyWrapper *keyWrapper) bool {
+	if len(p.stack) == 0 {
+		return false
+	}
+	pos := p.stack[len(p.stack)-1].matchPos
+	if keyWrapper.keyMatched && keyWrapper.propsMatched >= len(p.nodes[pos].props) {
+		keyWrapper.matchPos++
+		return true
 	}
 	return false
 }
 
 func (p *picker[T]) walk(dest any, kk string) {
 	keyWrapper := &keyWrapper{
-		key:          kk,
-		keyMatched:   make(map[int]bool),
-		propsMatched: make(map[int]int),
+		key: kk,
+		// keyMatched:   make(map[int]bool),
+		// propsMatched: make(map[int]int),
+	}
+	if len(p.stack) == 0 {
+		keyWrapper.matchPos = 0
+	} else {
+		keyWrapper.matchPos = p.stack[len(p.stack)-1].matchPos
 	}
 	p.stack = append(p.stack, keyWrapper)
 	defer func() {
 		p.stack = p.stack[:len(p.stack)-1]
 	}()
 	// 字段是否匹配
-	for i, node := range p.nodes {
-		if strings.EqualFold(node.key, kk) || node.key == "" {
-			keyWrapper.keyMatched[i] = true
-		}
+	node := p.nodes[keyWrapper.matchPos]
+	if strings.EqualFold(node.key, kk) || node.key == "" {
+		keyWrapper.keyMatched = true
 	}
 	var v reflect.Value
 	var ok bool
@@ -115,28 +133,44 @@ func (p *picker[T]) walk(dest any, kk string) {
 		}
 	}
 
+	oldPos := keyWrapper.matchPos
+	defer func() {
+		keyWrapper.matchPos = oldPos
+	}()
 	if kvMap != nil {
 		// 检查属性是否匹配
-		p.matchProps(kvMap)
+		p.matchProps(kvMap, keyWrapper)
+		if p.checkMatchPos(keyWrapper) && keyWrapper.matchPos == len(p.nodes) {
+			keyWrapper.matchPos--
+			p.pushResult(dest)
+		}
 		for kk, vv := range kvMap {
 			p.walk(vv, kk)
 		}
 	} else {
 		// 如果命中尾节点
-		if keyWrapper.keyMatched[len(p.nodes)-1] && keyWrapper.propsMatched[len(p.nodes)-1] == len(p.nodes[len(p.nodes)-1].props) && p.checkAllPropsMatched() {
-			var ret any = dest
-			if v, ok := dest.(reflect.Value); ok {
-				ret = v.Interface()
-			}
-			if c, ok := ret.(T); ok {
-				p.result = append(p.result, c)
-				return
-			}
-			var c T
-			if err := Cast(&c, ret); err == nil {
-				p.result = append(p.result, c)
-			}
+		if p.checkMatchPos(keyWrapper) && keyWrapper.matchPos == len(p.nodes) {
+			keyWrapper.matchPos--
+			p.pushResult(dest)
 		}
+		// if keyWrapper.keyMatched[len(p.nodes)-1] && keyWrapper.propsMatched[len(p.nodes)-1] == len(p.nodes[len(p.nodes)-1].props) && p.checkAllPropsMatched() {
+		// 	p.pushResult(dest)
+		// }
+	}
+}
+
+func (p *picker[T]) pushResult(dest any) {
+	var ret any = dest
+	if v, ok := dest.(reflect.Value); ok {
+		ret = v.Interface()
+	}
+	if c, ok := ret.(T); ok {
+		p.result = append(p.result, c)
+		return
+	}
+	var c T
+	if err := Cast(&c, ret); err == nil {
+		p.result = append(p.result, c)
 	}
 }
 
