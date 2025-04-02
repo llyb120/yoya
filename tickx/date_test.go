@@ -264,6 +264,11 @@ func TestMoveEdgeCases(t *testing.T) {
 	}
 }
 
+func TestSpecialMove(t *testing.T) {
+	res := Move(time.Now().Format("2006-01-02"), -1*Day)
+	fmt.Println(res)
+}
+
 func TestCompare(t *testing.T) {
 	tests := []struct {
 		name     string

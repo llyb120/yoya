@@ -113,11 +113,11 @@ func (c *baseCache[K, V]) Get(key K) (V, bool) {
 func (c *baseCache[K, V]) Gets(keys ...K) []V {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	values := make([]V, len(keys))
-	for i, key := range keys {
+	values := make([]V, 0, len(keys))
+	for _, key := range keys {
 		value, ok := c.get(key)
 		if ok {
-			values[i] = value
+			values = append(values, value)
 		}
 	}
 	return values
