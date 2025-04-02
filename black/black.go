@@ -8,6 +8,10 @@ import (
 	"unsafe"
 )
 
+func Byte2Str(bs []byte) string {
+	return *(*string)(unsafe.Pointer(&bs))
+}
+
 func ToBytes(obj any) ([]byte, error) {
 	// 获取对象的值和类型
 	v := reflect.ValueOf(obj)

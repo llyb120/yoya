@@ -49,7 +49,7 @@ func scanOptions(opts []lsxOption) *lsxOptionContext {
 
 func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
 	ctx := scanOptions(opts)
-	result := make([]R, 0, len(arr))
+	result := make([]R, len(arr))
 	if ctx.async {
 		var wg = internal.NewThreadPool(runtime.GOMAXPROCS(0))
 		defer wg.Destroy()
