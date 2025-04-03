@@ -72,7 +72,7 @@ func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
 		// 同步
 		for i, v := range arr {
 			r := fn(v, i)
-			result = append(result, r)
+			result[i] = r
 		}
 	}
 	// 如果需要过滤
