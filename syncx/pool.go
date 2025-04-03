@@ -13,8 +13,8 @@ type pool[T any] struct {
 }
 
 type Pool[T any] interface {
-	Get() T
-	Put(v T)
+	Get() (T, *T)
+	Put(v *T)
 }
 
 type PoolOption[T any] struct {
@@ -32,13 +32,14 @@ func NewPool[T any](opts PoolOption[T]) Pool[T] {
 	return ptr
 }
 
-func (p *pool[T]) Get() T {
-	return p.Pool.Get().(T)
+func (p *pool[T]) Get() (T, *T) {
+	item := p.Pool.Get().(T)
+	return item, &item
 }
 
-func (p *pool[T]) Put(v T) {
+func (p *pool[T]) Put(v *T) {
 	if p.Finalizer != nil {
-		p.Finalizer(&v)
+		p.Finalizer(v)
 	}
-	p.Pool.Put(v)
+	p.Pool.Put(*v)
 }
