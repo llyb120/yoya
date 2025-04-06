@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/goccy/go-reflect"
+	"github.com/llyb120/yoya/internal"
 )
 
 type keyWrapper struct {
@@ -211,7 +212,7 @@ func (p *picker[T]) pushResult(dest any) {
 		return
 	}
 	var c T
-	if err := Cast(&c, ret); err == nil {
+	if err := internal.Cast(&c, ret); err == nil {
 		p.result = append(p.result, c)
 	}
 }

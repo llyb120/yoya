@@ -8,7 +8,6 @@ import (
 	"runtime"
 
 	"github.com/llyb120/yoya/internal"
-	"github.com/llyb120/yoya/objx"
 	"github.com/llyb120/yoya/stlx"
 	"github.com/llyb120/yoya/syncx"
 )
@@ -211,14 +210,14 @@ func Vals[K comparable, V any](mp map[K]V) []V {
 
 func Mock[K any, T any](arr *[]K, fn func(*[]T)) error {
 	var mock []T
-	err := objx.Cast(&mock, arr)
+	err := internal.Cast(&mock, arr)
 	if err != nil {
 		return err
 	}
 	fn(&mock)
 	// 还原
 	var result []K
-	err = objx.Cast(&result, mock)
+	err = internal.Cast(&result, mock)
 	if err != nil {
 		return err
 	}

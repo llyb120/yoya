@@ -5,6 +5,7 @@ import (
 
 	reflect "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/errx"
+	"github.com/llyb120/yoya/internal"
 )
 
 func Assign[T comparable, K0 any, K1 any](dest map[T]K0, source map[T]K1) {
@@ -19,7 +20,7 @@ func Assign[T comparable, K0 any, K1 any](dest map[T]K0, source map[T]K1) {
 	} else {
 		// 一次性转过来
 		var mp map[T]K0
-		if err := Cast(&mp, source); err != nil {
+		if err := internal.Cast(&mp, source); err != nil {
 			fmt.Println("err:", err)
 			return
 		}

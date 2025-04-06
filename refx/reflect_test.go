@@ -17,6 +17,7 @@ func (i *Inner) GetInnerField1() string {
 type Test struct {
 	Field1 string
 	Field2 int
+	Test   func()
 	*Inner
 }
 
@@ -28,6 +29,9 @@ func TestReflect(t *testing.T) {
 	var test = &Test{
 		Field1: "test",
 		Field2: 1,
+		Test: func() {
+			fmt.Println("hei test")
+		},
 	}
 	// err := Set(test, "Field1", "test2")
 	// if err != nil {
@@ -51,16 +55,23 @@ func TestReflect(t *testing.T) {
 	// 	t.Fatal("InnerField1 is not inner1")
 	// }
 
-	fields := GetFields(test)
+	fields := GetFields(test, IgnoreFunc)
 
 	// fmt.Println(fields["Field1"].Get())
 	// fmt.Println(fields["Field2"].Get())
 	fmt.Println(fields["InnerField1"].Get())
 	// fmt.Println(fields["InnerField2"].Get())
+	// fn, err := fields["Test"].Get()
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
+	// fn.(func())()
 
 	res, _ := Call(test, "GetField1")
 	fmt.Println(res[0])
 
-	methods := GetMethods(test)
+	methods := GetMethods(test, IncludeFieldFunc)
 	fmt.Println(methods["GetInnerField1"].Call())
+
+	methods["Test"].Call()
 }

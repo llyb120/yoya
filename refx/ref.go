@@ -9,7 +9,6 @@ import (
 
 	reflect "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/internal"
-	"github.com/llyb120/yoya/objx"
 )
 
 // 对反射进行加速
@@ -282,7 +281,7 @@ func (r *reflectCache) getMethod(item *reflectCacheItem, obj any, methodName str
 	return reflect.Value{}, fmt.Errorf("method %s not found", methodName)
 }
 
-func (r *reflectCache) getFieldByName(obj any, name string) (reflect.Value, error) {
+func (r *reflectCache) getFieldByName(obj any, name string) (reflect.Value, bool) {
 	// item := r.analyze(obj)
 	// if item == nil {
 	// 	return reflect.Value{}, fmt.Errorf("failed to analyze object")
@@ -291,28 +290,28 @@ func (r *reflectCache) getFieldByName(obj any, name string) (reflect.Value, erro
 	for i, part := range arr {
 		if field, ok := r.getValue(nil, obj, part); ok {
 			if i == len(arr)-1 {
-				return field, nil
+				return field, true
 			} else {
 				obj = field
 			}
 			// obj = field.Interface()
 		} else {
-			return reflect.Value{}, fmt.Errorf("field %s not found", part)
+			return reflect.Value{}, false
 		}
 	}
 	// return reflect.ValueOf(obj), nil
-	return reflect.Value{}, fmt.Errorf("field %s not found", name)
+	return reflect.Value{}, false
 }
 
-func (r *reflectCache) getMethodByName(obj any, name string) (reflect.Value, error) {
+func (r *reflectCache) getMethodByName(obj any, name string) (reflect.Value, bool) {
 	item := r.analyze(obj)
 	if item == nil {
-		return reflect.Value{}, fmt.Errorf("failed to analyze object")
+		return reflect.Value{}, false
 	}
 	if method, err := r.getMethod(item, obj, name); err == nil {
-		return method, nil
+		return method, true
 	}
-	return reflect.Value{}, fmt.Errorf("method %s not found", name)
+	return reflect.Value{}, false
 }
 
 // set 设置对象的字段值，支持指针类型
@@ -380,9 +379,9 @@ func (r *reflectCache) set(obj any, fieldName string, value any) error {
 	// }
 
 	// fieldValue := v.FieldByIndex(field.index)
-	fieldValue, err := r.getFieldByName(obj, fieldName)
-	if err != nil {
-		return err
+	fieldValue, ok := r.getFieldByName(obj, fieldName)
+	if !ok {
+		return fmt.Errorf("field %s not found", fieldName)
 	}
 	// if !fieldValue.CanSet() {
 	// 	return fmt.Errorf("cannot set field %s: field is not settable", fieldName)
@@ -390,7 +389,7 @@ func (r *reflectCache) set(obj any, fieldName string, value any) error {
 	if fieldValue.Kind() != reflect.TypeOf(value).Kind() {
 		// convert
 		ptr := reflect.New(fieldValue.Type())
-		if err := objx.Cast(ptr.Interface(), value); err != nil {
+		if err := internal.Cast(ptr.Interface(), value); err != nil {
 			return err
 		}
 		value = ptr.Elem().Interface()

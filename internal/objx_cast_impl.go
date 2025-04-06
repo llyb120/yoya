@@ -1,4 +1,4 @@
-package objx
+package internal
 
 import (
 	"errors"

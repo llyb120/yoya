@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+
+	"github.com/llyb120/yoya/internal"
 )
 
 // 用于并发测试的源结构体
@@ -63,7 +65,7 @@ func TestConcurrentConversion(t *testing.T) {
 
 			for j := 0; j < numIterations; j++ {
 				var target ConcurrentTarget
-				err := Cast(&target, source)
+				err := internal.Cast(&target, source)
 				if err != nil {
 					t.Errorf("转换失败 (goroutine %d, iteration %d): %v", idx, j, err)
 					errorOccurred = true
@@ -101,7 +103,7 @@ func TestConcurrentConversion(t *testing.T) {
 			for j := 0; j < numIterations; j++ {
 				// 创建目标切片
 				var targetSlice []ConcurrentTarget
-				err := Cast(&targetSlice, sourceSlice)
+				err := internal.Cast(&targetSlice, sourceSlice)
 				if err != nil {
 					t.Errorf("切片转换失败 (goroutine %d, iteration %d): %v", idx, j, err)
 					errorOccurred = true
@@ -137,7 +139,7 @@ func TestConcurrentConversion(t *testing.T) {
 					// 结构体到结构体
 					source := sources[idx]
 					var target ConcurrentTarget
-					err := Cast(&target, source)
+					err := internal.Cast(&target, source)
 					if err != nil {
 						t.Errorf("缓存测试转换失败 (goroutine %d, iteration %d): %v", idx, j, err)
 						errorOccurred = true
@@ -151,7 +153,7 @@ func TestConcurrentConversion(t *testing.T) {
 						IsActive: j%3 == 0,
 					}
 					var target ConcurrentTarget
-					err := Cast(&target, source)
+					err := internal.Cast(&target, source)
 					if err != nil {
 						t.Errorf("缓存测试转换失败 (goroutine %d, iteration %d): %v", idx, j, err)
 						errorOccurred = true
