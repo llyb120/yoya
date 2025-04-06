@@ -1,4 +1,4 @@
-package refx
+package internal
 
 import (
 	"unsafe"

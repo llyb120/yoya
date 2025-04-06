@@ -5,7 +5,6 @@ import (
 
 	reflect "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/internal"
-	"github.com/llyb120/yoya/refx"
 	"github.com/llyb120/yoya/syncx"
 )
 
@@ -100,13 +99,13 @@ func (w *walkContext) doFunc(ref reflect.Value, k any, v reflect.Value) any {
 			if res != Unchanged && res != nil {
 				w.wg.Lock()
 				defer w.wg.Unlock()
-				refx.UnsafeSetFieldValue(v, reflect.ValueOf(res).Elem(), true)
+				internal.UnsafeSetFieldValue(v, reflect.ValueOf(res).Elem(), true)
 			}
 		})
 	} else {
 		res = w.fn(ref.Interface(), k, v.Interface())
 		if res != Unchanged && res != nil {
-			refx.UnsafeSetFieldValue(v, reflect.ValueOf(res), true)
+			internal.UnsafeSetFieldValue(v, reflect.ValueOf(res), true)
 		}
 	}
 	return res
