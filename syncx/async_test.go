@@ -275,3 +275,21 @@ func TestEndAsync(t *testing.T) {
 
 	fmt.Println(*r, *r11, *r2, *r3)
 }
+
+func TestWaitAsyncMap(t *testing.T) {
+	var asyncFunc = Async_1_1(func(i int) int {
+		return i * 2
+	})
+	var m = make(map[string]*int)
+	for k, v := range map[string]int{
+		"a": 1,
+		"b": 2,
+		"c": 3,
+	} {
+		m[k] = asyncFunc(v)
+	}
+	if err := Await(m); err != nil {
+		t.Errorf("期望无错误，但得到: %v", err)
+	}
+	fmt.Println(*m["a"], *m["b"], *m["c"])
+}

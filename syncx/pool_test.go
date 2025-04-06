@@ -12,10 +12,10 @@ func TestPool(t *testing.T) {
 		},
 	})
 
-	res := pool.Get()
+	res, rec := pool.Get()
+	defer rec()
 	res = append(res, "1", "2", "3")
 	fmt.Println(res)
-	pool.Put(res)
 }
 
 func BenchmarkPool(b *testing.B) {
@@ -30,11 +30,11 @@ func BenchmarkPool(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		res := pool.Get()
+		res, rec := pool.Get()
+		defer rec()
 		res = append(res, "1", "2", "3")
-		pool.Put(res)
 	}
 
-	res := pool.Get()
+	res, _ := pool.Get()
 	fmt.Println(res)
 }

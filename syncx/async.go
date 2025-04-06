@@ -237,6 +237,17 @@ func Await(objs ...any) error {
 			}
 			continue
 		}
+		// 如果是map
+		if tp.Kind() == rf.Map {
+			val := rf.ValueOf(e)
+			for _, vk := range val.MapKeys() {
+				f := loadFuture(val.MapIndex(vk).Interface())
+				if f != nil {
+					futures = append(futures, f)
+				}
+			}
+			continue
+		}
 		// 其余的情况
 		f := loadFuture(e)
 		if f != nil {
