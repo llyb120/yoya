@@ -6,11 +6,11 @@ import (
 )
 
 func TestPool(t *testing.T) {
-	var pool = NewPool(PoolOption[[]string]{
+	var pool = PoolOption[[]string]{
 		New: func() []string {
 			return []string{}
 		},
-	})
+	}.Build()
 
 	res, rec := pool.Get()
 	defer rec()
@@ -19,14 +19,14 @@ func TestPool(t *testing.T) {
 }
 
 func BenchmarkPool(b *testing.B) {
-	var pool = NewPool(PoolOption[[]string]{
+	var pool = PoolOption[[]string]{
 		New: func() []string {
 			return []string{}
 		},
 		Finalizer: func(v *[]string) {
 			*v = (*v)[:0]
 		},
-	})
+	}.Build()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

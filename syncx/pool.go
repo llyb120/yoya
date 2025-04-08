@@ -6,7 +6,7 @@ import (
 
 // 增强的池，可以设置终结函数，用于对象的回收
 type pool[T any] struct {
-	sync.Pool
+	p sync.Pool
 	PoolOption[T]
 	size     int
 	prepared chan T
@@ -21,27 +21,36 @@ type PoolOption[T any] struct {
 	New       func() T
 }
 
-func NewPool[T any](opts PoolOption[T]) Pool[T] {
-	var ptr = &pool[T]{
-		Pool: sync.Pool{New: func() any {
-			return opts.New()
+func (opt PoolOption[T]) Build() *pool[T] {
+	return &pool[T]{
+		p: sync.Pool{New: func() any {
+			return opt.New()
 		}},
-		PoolOption: opts,
+		PoolOption: opt,
 	}
-	return ptr
 }
+
+// func NewPool[T any](opts PoolOption[T]) Pool[T] {
+// 	var ptr = &pool[T]{
+// 		Pool: sync.Pool{New: func() any {
+// 			return opts.New()
+// 		}},
+// 		PoolOption: opts,
+// 	}
+// 	return ptr
+// }
 
 func (p *pool[T]) Get() (T, func()) {
-	item := p.Pool.Get().(T)
+	item := p.p.Get().(T)
 	ptr := &item
 	return item, func() {
-		p.Put(ptr)
+		p.put(ptr)
 	}
 }
 
-func (p *pool[T]) Put(v *T) {
+func (p *pool[T]) put(v *T) {
 	if p.Finalizer != nil {
 		p.Finalizer(v)
 	}
-	p.Pool.Put(*v)
+	p.p.Put(*v)
 }
