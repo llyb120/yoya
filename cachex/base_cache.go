@@ -131,10 +131,12 @@ func (c *baseCache[K, V]) get(key K) (V, bool) {
 	return item.value, true
 }
 
-func (c *baseCache[K, V]) Del(key K) {
+func (c *baseCache[K, V]) Del(key ...K) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	delete(c.cache, key)
+	for _, k := range key {
+		delete(c.cache, k)
+	}
 }
 
 func (c *baseCache[K, V]) Clear() {

@@ -7,7 +7,7 @@ type Cache[K comparable, V any] interface {
 	Gets(keys ...K) []V
 	Set(key K, value V)
 	SetExpire(key K, value V, expire time.Duration)
-	Del(key K)
+	Del(key ...K)
 	Clear()
 	Destroy()
 	GetOrSetFunc(key K, fn func() V) V
