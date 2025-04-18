@@ -623,7 +623,7 @@ func (c *Converter) convertNonStructValues(src, dest reflect.Value) error {
 	// 如果源和目标类型相同，直接赋值
 	if src.Type().AssignableTo(dest.Type()) {
 		if dest.CanSet() {
-			c.unsafeSetField(dest, []int{0}, src)
+			c.unsafeSetFieldValue(dest, src)
 		}
 		return nil
 	}
