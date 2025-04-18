@@ -386,15 +386,21 @@ func (r *reflectCache) set(obj any, fieldName string, value any) error {
 	// if !fieldValue.CanSet() {
 	// 	return fmt.Errorf("cannot set field %s: field is not settable", fieldName)
 	// }
-	if fieldValue.Kind() != reflect.TypeOf(value).Kind() {
+	var rv reflect.Value
+	if rv, ok = value.(reflect.Value); !ok {
+		rv = reflect.ValueOf(value)
+	}
+	if fieldValue.Kind() != rv.Kind() {
 		// convert
 		ptr := reflect.New(fieldValue.Type())
 		if err := internal.Cast(ptr.Interface(), value); err != nil {
 			return err
 		}
 		value = ptr.Elem().Interface()
+		internal.UnsafeSetFieldValue(fieldValue, reflect.ValueOf(value), false)
+	} else {
+		internal.UnsafeSetFieldValue(fieldValue, rv, false)
 	}
-	internal.UnsafeSetFieldValue(fieldValue, reflect.ValueOf(value), false)
 
 	// fieldValue.Set(valueToSet)
 	return nil
