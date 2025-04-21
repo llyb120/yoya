@@ -4,6 +4,8 @@ import (
 	"log"
 	"runtime"
 	"sync"
+
+	"github.com/llyb120/yoya/syncx"
 )
 
 type TimeLeapOption int
@@ -13,24 +15,27 @@ const (
 )
 
 type TimeLeapAble interface {
-	Leap(func())
+	Leap(func(), ...any)
 }
 
 type timeLeap struct {
 	mu    sync.Mutex
 	funcs []func()
+	waits []any
 	async bool
 }
 
-func (t *timeLeap) Leap(f func()) {
+func (t *timeLeap) Leap(f func(), waitPtr ...any) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.funcs = append(t.funcs, f)
+	t.waits = append(t.waits, waitPtr...)
 }
 
 func TimeLeap(opts ...TimeLeapOption) (TimeLeapAble, func()) {
 	t := &timeLeap{
 		funcs: make([]func(), 0, 8),
+		waits: make([]any, 0, 2),
 	}
 
 	for _, opt := range opts {
@@ -42,6 +47,12 @@ func TimeLeap(opts ...TimeLeapOption) (TimeLeapAble, func()) {
 	return t, func() {
 		t.mu.Lock()
 		defer t.mu.Unlock()
+		if len(t.waits) > 0 {
+			if err := syncx.Await(t.waits...); err != nil {
+				log.Printf("time leap await error: %v", err)
+				return
+			}
+		}
 		if t.async {
 			var wg sync.WaitGroup
 			for _, f := range t.funcs {
