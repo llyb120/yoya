@@ -9,7 +9,7 @@ import (
 
 type Record[T any] struct {
 	Data       T
-	ExtMap     map[string]any
+	Ext        map[string]any
 	ExtObjects []any
 	once       sync.Once
 }
@@ -17,20 +17,25 @@ type Record[T any] struct {
 func NewRecord[T any](data T) *Record[T] {
 	return &Record[T]{
 		Data:       data,
-		ExtMap:     make(map[string]any),
+		Ext:        make(map[string]any),
 		ExtObjects: make([]any, 0, 4),
 	}
 }
 
 func (r *Record[T]) Put(key string, value any) {
 	r.init()
-	r.ExtMap[key] = value
+	r.Ext[key] = value
+}
+
+func (r *Record[T]) GetExt(key string) any {
+	r.init()
+	return r.Ext[key]
 }
 
 func (r *Record[T]) PutMap(m map[string]any) {
 	r.init()
 	for k, v := range m {
-		r.ExtMap[k] = v
+		r.Ext[k] = v
 	}
 }
 
@@ -45,7 +50,7 @@ func (r Record[T]) GetType() reflect.Type {
 
 func (r *Record[T]) init() {
 	r.once.Do(func() {
-		r.ExtMap = make(map[string]any)
+		r.Ext = make(map[string]any)
 	})
 }
 
@@ -69,8 +74,8 @@ func (r *Record[T]) MarshalJSON() ([]byte, error) {
 	}
 	if hasMain {
 		// 构造额外数据
-		if len(r.ExtMap) > 0 {
-			mapBs, err := defaultJSONEncoder(r.ExtMap)
+		if len(r.Ext) > 0 {
+			mapBs, err := defaultJSONEncoder(r.Ext)
 			if err != nil {
 				return nil, err
 			}
