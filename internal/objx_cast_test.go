@@ -691,3 +691,98 @@ func TestMap(t *testing.T) {
 
 	fmt.Println(b)
 }
+
+type Gen[T any] struct {
+	Value T `json:"value"`
+}
+
+type GenItem struct {
+	Name string `json:"name"`
+	Age  string `json:"age"`
+}
+
+func TestGeneric(t *testing.T) {
+	// 测试场景1：map到struct的泛型转换
+	t.Run("Map_To_Struct", func(t *testing.T) {
+		a := []Gen[map[string]string]{
+			{Value: map[string]string{"name": "张三", "age": "30"}},
+			{Value: map[string]string{"name": "李四", "age": "25"}},
+			{Value: map[string]string{"name": "王五", "age": "35"}},
+		}
+
+		var b []Gen[GenItem]
+
+		err := Cast(&b, a)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// 验证转换结果
+		if len(b) != len(a) {
+			t.Errorf("切片长度不匹配: 预期 %d, 得到 %d", len(a), len(b))
+		}
+
+		for i, item := range b {
+			if item.Value.Name != a[i].Value["name"] || item.Value.Age != a[i].Value["age"] {
+				t.Errorf("第 %d 个元素转换失败: 预期 %+v, 得到 %+v", i, a[i].Value, item.Value)
+			}
+		}
+	})
+
+	// 测试场景2：struct到map的泛型转换
+	t.Run("Struct_To_Map", func(t *testing.T) {
+		a := []Gen[GenItem]{
+			{Value: GenItem{Name: "张三", Age: "30"}},
+			{Value: GenItem{Name: "李四", Age: "25"}},
+			{Value: GenItem{Name: "王五", Age: "35"}},
+		}
+
+		var b []Gen[map[string]string]
+
+		err := Cast(&b, a)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// 验证转换结果
+		if len(b) != len(a) {
+			t.Errorf("切片长度不匹配: 预期 %d, 得到 %d", len(a), len(b))
+		}
+
+		for i, item := range b {
+			if item.Value["name"] != a[i].Value.Name || item.Value["age"] != a[i].Value.Age {
+				t.Errorf("第 %d 个元素转换失败: 预期 %+v, 得到 %+v", i, a[i].Value, item.Value)
+			}
+		}
+	})
+
+	// 测试场景3：嵌套泛型转换
+	type NestedGen[T any] struct {
+		Data Gen[T] `json:"data"`
+	}
+
+	t.Run("Nested_Generic", func(t *testing.T) {
+		a := []NestedGen[map[string]string]{
+			{Data: Gen[map[string]string]{Value: map[string]string{"name": "张三", "age": "30"}}},
+			{Data: Gen[map[string]string]{Value: map[string]string{"name": "李四", "age": "25"}}},
+		}
+
+		var b []NestedGen[GenItem]
+
+		err := Cast(&b, a)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// 验证转换结果
+		if len(b) != len(a) {
+			t.Errorf("切片长度不匹配: 预期 %d, 得到 %d", len(a), len(b))
+		}
+
+		for i, item := range b {
+			if item.Data.Value.Name != a[i].Data.Value["name"] || item.Data.Value.Age != a[i].Data.Value["age"] {
+				t.Errorf("第 %d 个元素转换失败: 预期 %+v, 得到 %+v", i, a[i].Data.Value, item.Data.Value)
+			}
+		}
+	})
+}

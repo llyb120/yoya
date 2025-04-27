@@ -40,6 +40,10 @@ const (
 	LT  = "<"
 	LE  = "<="
 	MEQ = "~="
+	MGT = "~>"
+	MGE = "~>="
+	MLT = "~<"
+	MLE = "~<="
 )
 
 func Guess(dateStr string) (time.Time, error) {
@@ -281,22 +285,38 @@ func When[L string | time.Time, R string | time.Time](left L, operator string, r
 	} else {
 		rightTime = any(right).(time.Time)
 	}
-	switch operator {
-	case GT:
-		return leftTime.After(rightTime)
-	case GE:
-		return leftTime.After(rightTime) || leftTime.Equal(rightTime)
-	case LT:
-		return leftTime.Before(rightTime)
-	case LE:
-		return leftTime.Before(rightTime) || leftTime.Equal(rightTime)
-	case EQ:
-		return leftTime.Equal(rightTime)
-	case NE:
-		return !leftTime.Equal(rightTime)
-	case MEQ:
-		return leftTime.Year() == rightTime.Year() && leftTime.Month() == rightTime.Month() && leftTime.Day() == rightTime.Day()
-	default:
-		return false
+	var compare func(time.Time, string, time.Time) bool
+	compare = func(leftTime time.Time, operator string, rightTime time.Time) bool {
+		switch operator {
+		case GT:
+			return leftTime.After(rightTime)
+		case GE:
+			return leftTime.After(rightTime) || leftTime.Equal(rightTime)
+		case LT:
+			return leftTime.Before(rightTime)
+		case LE:
+			return leftTime.Before(rightTime) || leftTime.Equal(rightTime)
+		case EQ:
+			return leftTime.Equal(rightTime)
+		case NE:
+			return !leftTime.Equal(rightTime)
+		case MEQ:
+			return leftTime.Year() == rightTime.Year() && leftTime.Month() == rightTime.Month() && leftTime.Day() == rightTime.Day()
+		case MGT:
+			return leftTime.Year() > rightTime.Year() ||
+				(leftTime.Year() == rightTime.Year() && leftTime.Month() > rightTime.Month()) ||
+				(leftTime.Year() == rightTime.Year() && leftTime.Month() == rightTime.Month() && leftTime.Day() > rightTime.Day())
+		case MLT:
+			return leftTime.Year() < rightTime.Year() ||
+				(leftTime.Year() == rightTime.Year() && leftTime.Month() < rightTime.Month()) ||
+				(leftTime.Year() == rightTime.Year() && leftTime.Month() == rightTime.Month() && leftTime.Day() < rightTime.Day())
+		case MGE:
+			return compare(leftTime, MGT, rightTime) || compare(leftTime, MEQ, rightTime)
+		case MLE:
+			return compare(leftTime, MLT, rightTime) || compare(leftTime, MEQ, rightTime)
+		default:
+			return false
+		}
 	}
+	return compare(leftTime, operator, rightTime)
 }
