@@ -298,6 +298,9 @@ func TestCompare(t *testing.T) {
 	if When("2024-02-03 20:00", ">=", "2024-02-02", ">=", "2024-02-01") {
 		fmt.Println("a jian")
 	}
+
+	date := Move(time.Now(), LastDayOfMonth, 1*Day)
+	fmt.Println(date)
 }
 
 // 性能测试

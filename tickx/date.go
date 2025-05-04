@@ -170,71 +170,64 @@ func Move[T string | *string | time.Time | *time.Time](date T, movements ...any)
 		}
 	}
 
-	// 处理所有的时间调整
-	var years, months, days int
-	var duration int64
-	var mType moveType
+	// 按顺序处理每个movement，而不是累加后一次应用
 	for _, m := range movements {
-		// 提取各个时间单位的调整值
 		switch m := any(m).(type) {
 		case YmdUnit:
-			years += int(m / Year)
-			months += int((m % Year) / Month)
-			days += int((m % Month) / Day)
+			years := int(m / Year)
+			months := int((m % Year) / Month)
+			days := int((m % Month) / Day)
+
+			if years != 0 || months != 0 || days != 0 {
+				t = adjustMonthBoundary(t, years, months, days)
+			}
 		case time.Duration:
-			duration += int64(m)
+			t = t.Add(m)
 		case moveType:
-			mType = m
+			switch m {
+			case FirstDayOfMonth:
+				t = time.Date(t.Year(), t.Month(), 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
+			case LastDayOfMonth:
+				t = t.AddDate(0, 1, -t.Day())
+			case FirstDayOfYear:
+				t = time.Date(t.Year(), 1, 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
+			case LastDayOfYear:
+				t = time.Date(t.Year(), 12, 31, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
+			case FirstDayOfWeek:
+				t = t.AddDate(0, 0, -int(t.Weekday()))
+			case FirstDayOfCNWeek:
+				// 对于中国周（从周一开始），需要特殊处理
+				// 如果是周日(0)，需要回退6天；否则回退到周一
+				offset := int(t.Weekday())
+				if offset == 0 {
+					offset = 6
+				} else {
+					offset -= 1
+				}
+				t = t.AddDate(0, 0, -offset)
+			case LastDayOfWeek:
+				t = t.AddDate(0, 0, 6-int(t.Weekday()))
+			case LastDayOfCNWeek:
+				// 对于中国周（从周一开始），需要特殊处理
+				// 如果是周日(0)，需要回退6天；否则回退到周一
+				offset := int(t.Weekday())
+				if offset == 0 {
+					offset = 6
+				} else {
+					offset -= 1
+				}
+				t = t.AddDate(0, 0, 6-int(t.Weekday()))
+			}
 		case bool:
 			flag = flag && m
+			if !flag {
+				return date
+			}
 		}
 	}
+
 	if !flag {
 		return date
-	}
-	// 使用自定义函数处理年月日的调整，特别是月份边界问题
-	if years != 0 || months != 0 || days != 0 {
-		t = adjustMonthBoundary(t, years, months, days)
-	}
-	// 如果需要按照mType调整
-	if mType != "" {
-		switch mType {
-		case FirstDayOfMonth:
-			t = time.Date(t.Year(), t.Month(), 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
-		case LastDayOfMonth:
-			t = t.AddDate(0, 1, -t.Day())
-		case FirstDayOfYear:
-			t = time.Date(t.Year(), 1, 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
-		case LastDayOfYear:
-			t = time.Date(t.Year(), 12, 31, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
-		case FirstDayOfWeek:
-			t = t.AddDate(0, 0, -int(t.Weekday()))
-		case FirstDayOfCNWeek:
-			// 对于中国周（从周一开始），需要特殊处理
-			// 如果是周日(0)，需要回退6天；否则回退到周一
-			offset := int(t.Weekday())
-			if offset == 0 {
-				offset = 6
-			} else {
-				offset -= 1
-			}
-			t = t.AddDate(0, 0, -offset)
-		case LastDayOfWeek:
-			t = t.AddDate(0, 0, 6-int(t.Weekday()))
-		case LastDayOfCNWeek:
-			// 对于中国周（从周一开始），需要特殊处理
-			// 如果是周日(0)，需要回退6天；否则回退到周一
-			offset := int(t.Weekday())
-			if offset == 0 {
-				offset = 6
-			} else {
-				offset -= 1
-			}
-			t = t.AddDate(0, 0, 6-int(t.Weekday()))
-		}
-	}
-	if duration != 0 {
-		t = t.Add(time.Duration(duration))
 	}
 
 	if isString {
