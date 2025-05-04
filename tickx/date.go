@@ -254,9 +254,37 @@ func Move[T string | *string | time.Time | *time.Time](date T, movements ...any)
 	}
 }
 
-func When[L string | time.Time, R string | time.Time](left L, operator string, right R) bool {
+func When(args ...any) bool {
+	if len(args) < 3 || len(args)%2 == 0 {
+		return false
+	}
+	if len(args) > 3 {
+		// 需要满足 123 345 这种多重关系
+		var flag bool = true
+		var useFlag = false
+		for i := 0; i < len(args); i += 2 {
+			if i+1 >= len(args) || i+2 >= len(args) {
+				break
+			}
+			operator, ok := args[i+1].(string)
+			if !ok {
+				return false
+			}
+			left := args[i]
+			right := args[i+2]
+			flag = flag && When(left, operator, right)
+			useFlag = true
+		}
+		return flag && useFlag
+	}
+	// 这里只有3的情况了
+	left := args[0]
+	operator, ok := args[1].(string)
+	if !ok {
+		return false
+	}
+	right := args[2]
 	cache := compareHolder.Get()
-
 	str, isStr := any(left).(string)
 	var leftTime time.Time
 	// 获取左值
