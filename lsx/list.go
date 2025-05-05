@@ -237,6 +237,18 @@ func Group[T any](arr []T, fn func(T, int) any) [][]T {
 	return result.Vals()
 }
 
+func Chunk[T any](arr []T, size int) [][]T {
+	var result = make([][]T, 0, len(arr)/size+1)
+	for i := 0; i < len(arr); i += size {
+		end := i + size
+		if end > len(arr) {
+			end = len(arr)
+		}
+		result = append(result, arr[i:end])
+	}
+	return result
+}
+
 func GroupMap[K comparable, V any](arr []V, fn func(V, int) K) map[K][]V {
 	var result = make(map[K][]V)
 	for i, v := range arr {
