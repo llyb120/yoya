@@ -162,3 +162,15 @@ func (om *orderedMap[K, V]) Fork() *orderedMap[K, V] {
 	forkMap := NewMap[K, V](om)
 	return forkMap
 }
+
+func (om *orderedMap[K, V]) Index(key K) int {
+	om.mu.RLock()
+	defer om.mu.RUnlock()
+
+	for i, k := range om.keys {
+		if k == key {
+			return i
+		}
+	}
+	return -1
+}
