@@ -154,3 +154,11 @@ func (om *orderedMap[K, V]) SortByValue(fn func(a, b V) bool) {
 	}
 	om.keys = keys
 }
+
+func (om *orderedMap[K, V]) Fork() *orderedMap[K, V] {
+	om.mu.RLock()
+	defer om.mu.RUnlock()
+
+	forkMap := NewMap[K, V](om)
+	return forkMap
+}
