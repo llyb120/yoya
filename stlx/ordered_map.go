@@ -1,5 +1,7 @@
 package stlx
 
+import "sort"
+
 // orderedMap 是一个协程安全的有序映射，按插入顺序维护键值对
 type orderedMap[K comparable, V any] struct {
 	mu   lock
@@ -120,4 +122,35 @@ func (om *orderedMap[K, V]) For(fn func(key K, value V) bool) {
 			break
 		}
 	}
+}
+
+func (om *orderedMap[K, V]) SortByKey(fn func(a, b K) bool) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+
+	sort.Slice(om.keys, func(i, j int) bool {
+		return fn(om.keys[i], om.keys[j])
+	})
+}
+
+func (om *orderedMap[K, V]) SortByValue(fn func(a, b V) bool) {
+	om.mu.Lock()
+	defer om.mu.Unlock()
+
+	type pair struct {
+		Index int
+		Value V
+	}
+	values := make([]pair, len(om.keys))
+	for i, key := range om.keys {
+		values[i] = pair{Index: i, Value: om.mp[key]}
+	}
+	sort.Slice(values, func(i, j int) bool {
+		return fn(values[i].Value, values[j].Value)
+	})
+	keys := make([]K, len(values))
+	for i, v := range values {
+		keys[i] = om.keys[v.Index]
+	}
+	om.keys = keys
 }
