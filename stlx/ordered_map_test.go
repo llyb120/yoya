@@ -48,3 +48,36 @@ func TestorderedMap2(t *testing.T) {
 		return true
 	})
 }
+
+func TestSortByValue(t *testing.T) {
+	om := NewMap[string, int]()
+	om.Set("a", 3)
+	om.Set("b", 1)
+	om.Set("c", 2)
+
+	// 按值升序排序
+	om.SortByValue(func(a, b int) bool {
+		return a < b
+	})
+
+	keys := om.Keys()
+	expectedKeys := []string{"b", "c", "a"} // 按值升序对应的键顺序
+	for i, key := range keys {
+		if key != expectedKeys[i] {
+			t.Errorf("SortByValue failed: expected key %s at index %d, got %s", expectedKeys[i], i, key)
+		}
+	}
+
+	// 按值降序排序
+	om.SortByValue(func(a, b int) bool {
+		return a > b
+	})
+
+	keys = om.Keys()
+	expectedKeys = []string{"a", "c", "b"} // 按值降序对应的键顺序
+	for i, key := range keys {
+		if key != expectedKeys[i] {
+			t.Errorf("SortByValue failed: expected key %s at index %d, got %s", expectedKeys[i], i, key)
+		}
+	}
+}

@@ -138,19 +138,19 @@ func (om *orderedMap[K, V]) SortByValue(fn func(a, b V) bool) {
 	defer om.mu.Unlock()
 
 	type pair struct {
-		Index int
+		Key   K
 		Value V
 	}
 	values := make([]pair, len(om.keys))
 	for i, key := range om.keys {
-		values[i] = pair{Index: i, Value: om.mp[key]}
+		values[i] = pair{Key: key, Value: om.mp[key]}
 	}
 	sort.Slice(values, func(i, j int) bool {
 		return fn(values[i].Value, values[j].Value)
 	})
 	keys := make([]K, len(values))
 	for i, v := range values {
-		keys[i] = om.keys[v.Index]
+		keys[i] = v.Key
 	}
 	om.keys = keys
 }
