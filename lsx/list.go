@@ -144,6 +144,13 @@ func Has[T comparable](arr []T, target T) bool {
 	return false
 }
 
+func Del[T comparable](arr *[]T, pos int) {
+	if pos < 0 || pos >= len(*arr) {
+		return
+	}
+	*arr = append((*arr)[:pos], (*arr)[pos+1:]...)
+}
+
 func Reduce[T any, R any](arr []T, fn func(R, T) R, initial R) R {
 	var source []T
 	result := initial
