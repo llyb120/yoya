@@ -37,12 +37,13 @@ func (o *object[T]) Put(v any) {
 	o.objects = append(o.objects, v)
 }
 
-func (o *object[T]) Get(key string) T {
+func (o *object[T]) Get(key string) (T, bool) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
 	o.convert()
-	return o.mp[key]
+	v, ok := o.mp[key]
+	return v, ok
 }
 
 func (o *object[T]) ToMap() map[string]T {
