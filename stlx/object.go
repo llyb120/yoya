@@ -19,7 +19,7 @@ type object[T any] struct {
 
 func NewObject[T any]() *object[T] {
 	return &object[T]{
-		objects: make([]any, 4),
+		objects: make([]any, 0, 4),
 		mp:      make(map[string]T),
 	}
 }
