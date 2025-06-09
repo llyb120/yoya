@@ -57,9 +57,12 @@ func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
 			v := v
 			wg.Go(func() {
 				r := fn(v, i)
-				if err := syncx.Await(r); err != nil {
-					fmt.Println("warn: ", err)
-					return
+				// 只有指针才可以等待
+				if reflect.TypeOf(r).Kind() == reflect.Ptr {
+					if err := syncx.Await(r); err != nil {
+						fmt.Println("warn: ", err)
+						return
+					}
 				}
 				wg.Lock()
 				defer wg.Unlock()
