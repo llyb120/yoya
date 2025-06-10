@@ -4,32 +4,33 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	reflect "github.com/goccy/go-reflect"
 )
 
 type AsyncFn any
 
 var (
-	//futureHolder = make([]sync.Map, 4)
-	futureHolder = sync.Map{}
+	futureHolder = make([]sync.Map, 4)
 )
 
 func saveFuture(ptrResult any, f *future) {
-	//var key uintptr
-	//key = reflect.ValueOf(ptrResult).Elem().UnsafeAddr()
-	//index := key % 4
-	futureHolder.Store(ptrResult, f)
+	var key uintptr
+	key = reflect.ValueOf(ptrResult).Elem().UnsafeAddr()
+	index := key % 4
+	futureHolder[index].Store(key, f)
 }
 
 func loadFuture(ptrResult any) *future {
-	//var key uintptr
-	//rf := reflect.ValueOf(ptrResult).Elem()
-	//if !rf.CanAddr() {
-	//	// 有可能不是需要等待的对象
-	//	return nil
-	//}
-	//key = rf.UnsafeAddr()
-	//index := key % 4
-	value, ok := futureHolder.Load(ptrResult)
+	var key uintptr
+	rf := reflect.ValueOf(ptrResult).Elem()
+	if !rf.CanAddr() {
+		// 有可能不是需要等待的对象
+		return nil
+	}
+	key = rf.UnsafeAddr()
+	index := key % 4
+	value, ok := futureHolder[index].Load(key)
 	if !ok {
 		return nil
 	}
@@ -37,10 +38,10 @@ func loadFuture(ptrResult any) *future {
 }
 
 func deleteFuture(ptrResult any) {
-	//var key uintptr
-	//key = reflect.ValueOf(ptrResult).Elem().UnsafeAddr()
-	//index := key % 4
-	futureHolder.Delete(ptrResult)
+	var key uintptr
+	key = reflect.ValueOf(ptrResult).Elem().UnsafeAddr()
+	index := key % 4
+	futureHolder[index].Delete(key)
 }
 
 // func (h *asyncHolder) contains(ptrResult any) bool {
