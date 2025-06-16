@@ -85,6 +85,14 @@ func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
 				if rv == nil {
 					return false
 				}
+				val := reflect.ValueOf(rv)
+				// 检查是否为指针、切片、映射、通道、函数或接口
+				switch val.Kind() {
+				case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Chan, reflect.Func, reflect.Interface:
+					if val.IsNil() {
+						return false
+					}
+				}
 			}
 			if ctx.ignoreEmpty {
 				rv := any(v)
