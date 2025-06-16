@@ -171,8 +171,10 @@ func (p *picker[T]) walk(dest any, kk string) {
 	case reflect.Struct:
 		for i := 0; i < v.NumField(); i++ {
 			vv := v.Field(i)
-			kStr := v.Type().Field(i).Name
-			kvMap[kStr] = vv.Interface()
+			if vv.CanInterface() {
+				kStr := v.Type().Field(i).Name
+				kvMap[kStr] = vv.Interface()
+			}
 		}
 	}
 
