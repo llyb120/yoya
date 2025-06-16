@@ -50,6 +50,9 @@ func (r Record[T]) GetType() reflect.Type {
 
 func (r *Record[T]) init() {
 	r.once.Do(func() {
+		if r.Ext != nil {
+			return
+		}
 		r.Ext = make(map[string]any)
 	})
 }
