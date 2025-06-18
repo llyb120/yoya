@@ -11,7 +11,7 @@ type Record[T any] struct {
 	Data       T
 	Ext        map[string]any
 	ExtObjects []any
-	once       sync.Once
+	//once       sync.Once
 }
 
 func NewRecord[T any](data T) *Record[T] {
@@ -49,12 +49,12 @@ func (r Record[T]) GetType() reflect.Type {
 }
 
 func (r *Record[T]) init() {
-	r.once.Do(func() {
-		if r.Ext != nil {
-			return
-		}
-		r.Ext = make(map[string]any)
-	})
+	//r.once.Do(func() {
+	if r.Ext != nil {
+		return
+	}
+	r.Ext = make(map[string]any)
+	//})
 }
 
 func (r *Record[T]) MarshalJSON() ([]byte, error) {
