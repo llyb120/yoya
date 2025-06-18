@@ -22,6 +22,35 @@ func NewRecord[T any](data T) *Record[T] {
 	}
 }
 
+func (r *Record[T]) Clone() Record[T] {
+	// 创建一个新的Record实例
+	var cpData T
+	newRecord := Record[T]{
+		Ext:        make(map[string]any),
+		ExtObjects: make([]any, len(r.ExtObjects)),
+	}
+	jsonData, err := defaultJSONEncoder(r.Data)
+	if err != nil {
+		return newRecord
+	}
+	err = defaultJSONDecoder(jsonData, &cpData)
+	if err != nil {
+		return newRecord
+	}
+
+	newRecord.Data = cpData
+
+	// 复制Ext映射
+	for k, v := range r.Ext {
+		newRecord.Ext[k] = v
+	}
+
+	// 复制ExtObjects切片
+	copy(newRecord.ExtObjects, r.ExtObjects)
+
+	return newRecord
+}
+
 func (r *Record[T]) Put(key string, value any) {
 	r.init()
 	r.Ext[key] = value
@@ -187,11 +216,16 @@ func (r *Record[T]) UnmarshalJSON(data []byte) error {
 }
 
 type JSONEncoder func(v any) ([]byte, error)
+type JSONDecoder func(data []byte, v any) error
 
 var defaultJSONEncoder JSONEncoder = json.Marshal
+var defaultJSONDecoder JSONDecoder = json.Unmarshal
 
 func SetJsonEncoder(encoder JSONEncoder) {
 	defaultJSONEncoder = encoder
+}
+func SetJsonDecoder(decoder JSONDecoder) {
+	defaultJSONDecoder = decoder
 }
 
 // 不能使用这个反序列化
