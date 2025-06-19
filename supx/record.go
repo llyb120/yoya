@@ -56,6 +56,11 @@ func (r *Record[T]) Put(key string, value any) {
 	r.Ext[key] = value
 }
 
+// 规范一下
+func (r *Record[T]) Set(key string, value any) {
+	r.Put(key, value)
+}
+
 func (r *Record[T]) GetExt(key string) any {
 	r.init()
 	return r.Ext[key]

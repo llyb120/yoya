@@ -2,6 +2,7 @@ package syncx
 
 import (
 	"fmt"
+	"github.com/llyb120/yoya/internal"
 	"runtime"
 	"sync"
 	"time"
@@ -81,4 +82,9 @@ func (g *Group) waitWithTimeout(timeout time.Duration) error {
 	case <-time.After(timeout):
 		return fmt.Errorf("等待超时，超过 %v", timeout)
 	}
+}
+
+func newGroup() internal.IGroup {
+	var g Group
+	return &g
 }

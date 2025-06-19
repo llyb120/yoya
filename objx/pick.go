@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/internal"
+	_ "unsafe"
 )
 
 type keyWrapper struct {
@@ -219,8 +221,13 @@ func (p *picker[T]) pushResult(dest any) {
 	}
 }
 
-// 从任意对象中收集元素
-func Pick[T any](src any, rule string) []T {
+type pickOption int
+
+const (
+	Distinct pickOption = iota // 去重
+)
+
+func pick[T any](src any, rule string) []T {
 	selector := &selector{
 		src: rule,
 	}
@@ -230,7 +237,67 @@ func Pick[T any](src any, rule string) []T {
 		nodes: nodes,
 	}
 	picker.walk(src, "")
+	return picker.result
+}
 
+// 从任意对象中收集元素
+func Pick[T any](src any, rules ...any) (result []T) {
+	var shouldDistinct = false
+	defer func() {
+		if shouldDistinct {
+			var mp = make(map[any]bool)
+			var _result []T
+			for _, v := range result {
+				if mp[v] {
+					continue
+				}
+				mp[v] = true
+				_result = append(_result, v)
+			}
+			result = _result
+		}
+	}()
+	var selectors []string
+	for _, rule := range rules {
+		if rule == Distinct {
+			shouldDistinct = true
+		}
+		if v, ok := rule.(string); ok {
+			selectors = append(selectors, v)
+		}
+	}
+	if len(selectors) == 0 {
+		return nil
+	}
+	if len(selectors) == 1 {
+		result = pick[T](src, selectors[0])
+		return
+	}
+
+	var g = newGroup()
+	var ret = make([][]T, 0, len(selectors))
+	var mu sync.Mutex
+	for i, selector := range selectors {
+		i := i
+		selector := selector
+		g.Go(func() error {
+			res := pick[T](src, selector)
+			mu.Lock()
+			defer mu.Unlock()
+			ret[i] = res
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return nil
+	}
+	//var finalResult []T
+	for _, r := range ret {
+		result = append(result, r...)
+	}
+	return
+
+	//var g *internal.ThreadPool
 	// var results []any
 	// var stack []any
 	// var stackMap = make(map[any]*int)
@@ -299,8 +366,8 @@ func Pick[T any](src any, rule string) []T {
 	// walk(src, func(k, v any) {
 	// 	cache[k] = v
 	// })
-
-	return picker.result
+	//
+	//return picker.result
 }
 
 // 将任意值转换为字符串
@@ -347,3 +414,6 @@ func toFloat64(value any) (float64, bool) {
 	}
 	return 0, false
 }
+
+//go:linkname newGroup github.com/llyb120/yoya/syncx.newGroup
+func newGroup() internal.IGroup

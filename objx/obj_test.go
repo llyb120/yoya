@@ -30,7 +30,7 @@ func TestWalk(t *testing.T) {
 			return res
 		}
 		return nil
-	}, Async, 1 * Level)
+	}, Async, 1*Level)
 
 	fmt.Println(item)
 	fmt.Println(time.Since(now))
@@ -90,7 +90,7 @@ func TestCollect(t *testing.T) {
 				"age":  10,
 				"name": "张三",
 				"id":   1,
-				"child": []map[string]any {
+				"child": []map[string]any{
 					{
 						"child": 1,
 					},
@@ -99,11 +99,11 @@ func TestCollect(t *testing.T) {
 			map[string]any{
 				"age":  10,
 				"name": "张三",
-				"id":   2,
+				"id":   1,
 			},
 		},
 	}
-	results := Pick[string](data, "name [age=10,name='张三'] id")
+	results := Pick[string](data, "name [age=10,name='张三'] id", Distinct)
 	fmt.Printf("%+v\n", results)
 
 	reuslt2 := Pick[any](data, "child")
@@ -244,11 +244,10 @@ func TestComplexPick(t *testing.T) {
 		}
 		return Unchanged
 	})
-	
+
 	// 验证年龄是否已更新
 	users := Pick[map[string]any](complexData, "profile")
 	for _, user := range users {
 		fmt.Printf("  %s: %d岁\n", user["name"], user["age"])
 	}
 }
-
