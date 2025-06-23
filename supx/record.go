@@ -233,6 +233,10 @@ func SetJsonDecoder(decoder JSONDecoder) {
 	defaultJSONDecoder = decoder
 }
 
+func encode(v any) ([]byte, error) {
+	return defaultJSONEncoder(v)
+}
+
 // 不能使用这个反序列化
 
 var bufferPool = sync.Pool{
