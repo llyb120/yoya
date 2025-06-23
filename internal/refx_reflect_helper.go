@@ -1,9 +1,8 @@
 package internal
 
 import (
+	"reflect"
 	"unsafe"
-
-	reflect "github.com/goccy/go-reflect"
 )
 
 func UnsafeSetFieldValue(field reflect.Value, value reflect.Value, forceCheckType bool) {

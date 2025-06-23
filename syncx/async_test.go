@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	rf "github.com/goccy/go-reflect"
+	"reflect"
 )
 
 // 测试正常函数调用
@@ -231,7 +231,7 @@ func TestAsyncReflect(t *testing.T) {
 	// fn := reflect.MakeFunc(reflect.TypeOf((*func(int) (int, error))(nil)), func(args []reflect.Value) []reflect.Value {
 	// 	return []reflect.Value{reflect.ValueOf(args[0].Int() + 1), reflect.ValueOf(nil)}
 	// })
-	var r = AsyncHighReflect(rf.ValueOf(foo), rf.TypeOf(int(0)))
+	var r = AsyncHighReflect(reflect.ValueOf(foo), reflect.TypeOf(int(0)))
 	r1 := r(1).(*int)
 	if err := Await(r1); err == nil {
 		t.Errorf("期望无错误，但得到: %v", err)

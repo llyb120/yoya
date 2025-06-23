@@ -2,10 +2,9 @@ package syncx
 
 import (
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
-
-	reflect "github.com/goccy/go-reflect"
 )
 
 type AsyncFn any

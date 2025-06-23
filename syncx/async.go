@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"reflect"
-
-	rf "github.com/goccy/go-reflect"
 )
 
 type future struct {
@@ -60,7 +58,7 @@ func (f *future) Get(timeout time.Duration) (any, error) {
 }
 
 func Async[T any](fn any) func(...any) *T {
-	fv := rf.ValueOf(fn)
+	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
 	return func(args ...any) (ptrResult *T) {
 		future := &future{exprtime: time.Now().Add(5 * time.Minute)}
@@ -78,9 +76,9 @@ func Async[T any](fn any) func(...any) *T {
 				future.done.Store(true)
 			}()
 
-			in := make([]rf.Value, len(args))
+			in := make([]reflect.Value, len(args))
 			for i, arg := range args {
-				in[i] = rf.ValueOf(arg)
+				in[i] = reflect.ValueOf(arg)
 			}
 
 			// 类型检查
@@ -223,12 +221,12 @@ func Await(objs ...any) error {
 	var futures []*future = make([]*future, 0, len(objs))
 	for _, e := range objs {
 		// 如果是数组，展开
-		tp := rf.TypeOf(e)
+		tp := reflect.TypeOf(e)
 		if tp == nil {
 			continue
 		}
-		if tp.Kind() == rf.Array || tp.Kind() == rf.Slice {
-			val := rf.ValueOf(e)
+		if tp.Kind() == reflect.Array || tp.Kind() == reflect.Slice {
+			val := reflect.ValueOf(e)
 			for i := 0; i < val.Len(); i++ {
 				f := loadFuture(val.Index(i).Interface())
 				if f != nil {
@@ -238,8 +236,8 @@ func Await(objs ...any) error {
 			continue
 		}
 		// 如果是map
-		if tp.Kind() == rf.Map {
-			val := rf.ValueOf(e)
+		if tp.Kind() == reflect.Map {
+			val := reflect.ValueOf(e)
 			for _, vk := range val.MapKeys() {
 				f := loadFuture(val.MapIndex(vk).Interface())
 				if f != nil {

@@ -1,9 +1,9 @@
 package objx
 
 import (
+	"reflect"
 	"runtime"
 
-	reflect "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/internal"
 	"github.com/llyb120/yoya/syncx"
 )

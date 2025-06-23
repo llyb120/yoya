@@ -2,12 +2,12 @@ package refx
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 
 	_ "unsafe"
 
-	reflect "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/internal"
 )
 

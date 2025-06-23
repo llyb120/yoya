@@ -3,11 +3,10 @@ package internal
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 	"unsafe"
-
-	reflect "github.com/goccy/go-reflect"
 )
 
 // 缓存相关的结构体定义

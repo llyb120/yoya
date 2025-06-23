@@ -33,7 +33,7 @@ func TestDistinct(t *testing.T) {
 	Distinct(&arr, func(v int, i int) any {
 		return v % 2
 	})
-	if len(arr) != 4 {
+	if len(arr) != 2 {
 		t.Errorf("Distinct result length is not equal to input length")
 	}
 }

@@ -2,8 +2,8 @@ package objx
 
 import (
 	"fmt"
+	"reflect"
 
-	reflect "github.com/goccy/go-reflect"
 	"github.com/llyb120/yoya/errx"
 	"github.com/llyb120/yoya/internal"
 )

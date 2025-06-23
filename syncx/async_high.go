@@ -2,9 +2,8 @@ package syncx
 
 import (
 	"fmt"
+	"reflect"
 	"time"
-
-	reflect "github.com/goccy/go-reflect"
 )
 
 // 高性能的reflect

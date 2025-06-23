@@ -17,6 +17,10 @@ type Future[T any] func() T
 
 type FutureError func() error
 
+type FutureAble interface {
+	GetType() reflect.Type
+}
+
 func Async2[T any](fn any) func(...any) (Future[T], FutureError) {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
