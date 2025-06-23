@@ -20,6 +20,21 @@ type FutureError func() error
 type FutureAble interface {
 	GetType() reflect.Type
 }
+type FutureCallAble interface {
+	ToFunc(fn any) func(...any) (any, FutureError)
+}
+
+func (f Future[T]) GetType() reflect.Type {
+	var t T
+	return reflect.TypeOf(t)
+}
+
+func (f Future[T]) ToFunc(fn any) func(...any) (any, FutureError) {
+	_fn := Async2[T](fn)
+	return func(args ...any) (any, FutureError) {
+		return _fn(args...)
+	}
+}
 
 func Async2[T any](fn any) func(...any) (Future[T], FutureError) {
 	fv := reflect.ValueOf(fn)
