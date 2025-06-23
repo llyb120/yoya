@@ -21,6 +21,11 @@ type FutureAble interface {
 	GetType() reflect.Type
 }
 
+func (f Future[T]) GetType() reflect.Type {
+	var t T
+	return reflect.TypeOf(t)
+}
+
 func Async2[T any](fn any) func(...any) (Future[T], FutureError) {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
