@@ -1,6 +1,7 @@
 package syncx
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"unsafe"
@@ -30,13 +31,14 @@ func TestAsync2(t *testing.T) {
 	// }
 	asyncAdd := Async2_2_1(add)
 	a := 1
-	future, err := asyncAdd(&a, nil)
-	if err() != nil {
-		fmt.Println(err())
+	future, er := asyncAdd(&a, nil)
+	if er() != nil {
+		fmt.Println(er())
 		return
 	}
 
-	fmt.Println(future())
+	res, err := json.Marshal(future)
+	fmt.Println(string(res), err)
 
 	return
 

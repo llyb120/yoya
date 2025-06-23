@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"runtime"
 	"sync"
+	_ "unsafe"
 )
 
 type futureContext[T any] struct {
@@ -34,6 +35,11 @@ func (f Future[T]) ToFunc(fn any) func(...any) (any, FutureError) {
 	return func(args ...any) (any, FutureError) {
 		return _fn(args...)
 	}
+}
+
+func (f Future[T]) MarshalJSON() ([]byte, error) {
+	res := f()
+	return encode(res)
 }
 
 func Async2[T any](fn any) func(...any) (Future[T], FutureError) {
@@ -314,3 +320,6 @@ func Async2_5_2[P0, P1, P2, P3, P4, R0 any, R1 error](fn func(P0, P1, P2, P3, P4
 		return asyncFn(p0, p1, p2, p3, p4)
 	}
 }
+
+//go:linkname encode github.com/llyb120/yoya/supx.encode
+func encode(v any) ([]byte, error)
