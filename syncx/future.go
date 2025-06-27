@@ -42,6 +42,13 @@ func (f Future[T]) MarshalJSON() ([]byte, error) {
 	return encode(res)
 }
 
+func Mirai[T any]() Future[T] {
+	return Future[T](func() T {
+		var zero T
+		return zero
+	})
+}
+
 func Async2[T any](fn any) func(...any) (Future[T], FutureError) {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
