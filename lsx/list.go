@@ -18,6 +18,7 @@ const (
 	IgnoreNil lsxOption = iota
 	IgnoreEmpty
 	Async
+	DoDistinct
 )
 
 var zero = &struct {
@@ -29,6 +30,7 @@ type lsxOptionContext struct {
 	ignoreNil   bool
 	ignoreEmpty bool
 	async       bool
+	distinct    bool
 }
 
 func scanOptions(opts []lsxOption) *lsxOptionContext {
@@ -41,6 +43,8 @@ func scanOptions(opts []lsxOption) *lsxOptionContext {
 			ctx.ignoreEmpty = true
 		case Async:
 			ctx.async = true
+		case DoDistinct:
+			ctx.distinct = true
 		}
 	}
 	return ctx
@@ -105,6 +109,9 @@ func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
 			}
 			return true
 		})
+	}
+	if ctx.distinct {
+		Distinct(&result)
 	}
 	return result
 }
