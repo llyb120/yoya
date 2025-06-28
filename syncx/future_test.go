@@ -466,3 +466,34 @@ func BenchmarkConcurrentFutures(b *testing.B) {
 		}
 	})
 }
+
+func Example() {
+	fn := func(a, b, c, d int) int { return a + b + c + d }
+	async := Async2_4_1(fn)
+	// 正常调用
+	res := fn(1, 2, 3, 4)
+	fmt.Println(res)
+
+	// 异步调用
+	res1 := async(1, 2, 3, 4)
+	fmt.Println(res1())
+
+	// error处理
+	fn2 := func(a, b, c, d int) (int, error) {
+		return 0, errors.New("test error")
+	}
+	async2 := Async2_4_2(fn2)
+	// 同步调用
+	res2, err := fn2(1, 2, 3, 4)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(res2)
+
+	// 异步调用
+	res3, err3 := async2(1, 2, 3, 4)
+	if err3() != nil {
+		fmt.Println(err3())
+	}
+	fmt.Println(res3())
+}
