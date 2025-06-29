@@ -15,7 +15,7 @@ type FutureAble interface {
 	GetType() reflect.Type
 }
 type FutureCallAble interface {
-	ToFunc(fn func(args ...any) any) func(...any) (Future[any], Future[error])
+	ToFunc(fn func(args ...any) (any, error)) func(...any) (any, Future[error])
 }
 
 func (f Future[T]) GetType() reflect.Type {
@@ -23,8 +23,8 @@ func (f Future[T]) GetType() reflect.Type {
 	return reflect.TypeOf(t)
 }
 
-func (f Future[T]) ToFunc(fn func(args ...any) T) func(...any) (Future[T], Future[error]) {
-	return func(args ...any) (Future[T], Future[error]) {
+func (f Future[T]) ToFunc(fn func(args ...any) (any, error)) func(...any) (any, Future[error]) {
+	return func(args ...any) (any, Future[error]) {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		var r T
@@ -32,7 +32,9 @@ func (f Future[T]) ToFunc(fn func(args ...any) T) func(...any) (Future[T], Futur
 		go func() {
 			defer wg.Done()
 			defer handlePanic(&err)
-			r = fn(args...)
+			var rr any
+			rr, err = fn(args...)
+			r, _ = rr.(T)
 		}()
 		wg.Wait()
 		return func() T {
