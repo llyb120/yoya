@@ -62,6 +62,10 @@ func (d Data[T]) Set(data T) {
 	d[dataKey] = &data
 }
 
+func (r Data[T]) GetType() reflect.Type {
+	return reflect.TypeOf((*T)(nil)).Elem()
+}
+
 func (d Data[T]) Clone() Data[T] {
 	cp, err := DeepCloneAny(d)
 	if err != nil {
