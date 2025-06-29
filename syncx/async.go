@@ -57,6 +57,7 @@ func (f *future) Get(timeout time.Duration) (any, error) {
 	return f.result, nil
 }
 
+// Deprecated: 使用 Async2 替代
 func Async[T any](fn any) func(...any) *T {
 	fv := reflect.ValueOf(fn)
 	ft := fv.Type()
