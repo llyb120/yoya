@@ -7,6 +7,7 @@ import (
 	"sync"
 )
 
+// Deprecated: 使用Data代替
 type Record[T any] struct {
 	Data       T
 	Ext        map[string]any
@@ -14,6 +15,7 @@ type Record[T any] struct {
 	//once       sync.Once
 }
 
+// Deprecated: 使用Data代替
 func NewRecord[T any](data T) *Record[T] {
 	return &Record[T]{
 		Data:       data,
