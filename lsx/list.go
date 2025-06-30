@@ -135,19 +135,33 @@ func Filter[T any](arr *[]T, fn func(T, int) bool) {
 	*arr = result
 }
 
-func Find[T any](arr []T, fn func(T, int) bool) (T, bool) {
+func Find[T any](arr []T, fn any) (T, bool) {
 	index := Pos(arr, fn)
 	if index == -1 {
-		var zero T
-		return zero, false
+		return *new(T), false
 	}
 	return arr[index], true
 }
 
-func Pos[T any](arr []T, fn func(T, int) bool) int {
-	for i, v := range arr {
-		if fn(v, i) {
-			return i
+func Pos[T any](arr []T, fn any) int {
+	switch fn := fn.(type) {
+	case func(T, int) bool:
+		for i, v := range arr {
+			if fn(v, i) {
+				return i
+			}
+		}
+	case func(T) bool:
+		for i, v := range arr {
+			if fn(v) {
+				return i
+			}
+		}
+	default:
+		for i, v := range arr {
+			if any(v) == fn {
+				return i
+			}
 		}
 	}
 	return -1

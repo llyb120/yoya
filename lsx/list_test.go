@@ -38,6 +38,16 @@ func TestDistinct(t *testing.T) {
 	}
 }
 
+func TestPos(t *testing.T) {
+	arr := []int{1, 2, 3, 4, 5, 1, 2, 3, 4, 5}
+	pos := Pos(arr, func(v int, i int) bool {
+		return v == 3
+	})
+	if pos != 2 {
+		t.Errorf("Pos result is not equal to input")
+	}
+}
+
 func TestFilter(t *testing.T) {
 	arr := []int{1, 2, 3, 4, 5, 1, 2, 3, 4, 5}
 	Filter(&arr, func(v int, i int) bool {
