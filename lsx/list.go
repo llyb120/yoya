@@ -116,10 +116,11 @@ func Map[T any, R any](arr []T, fn func(T, int) R, opts ...lsxOption) []R {
 	return result
 }
 
-func FlatMap[T any, R any](arr []T, fn func(T, int) []R) []R {
-	var result []R
-	for i, v := range arr {
-		result = append(result, fn(v, i)...)
+func FlatMap[T any, R any](arr []T, fn func(T, int) []R, opts ...lsxOption) []R {
+	var _result = Map(arr, fn, opts...)
+	var result = make([]R, 0)
+	for _, v := range _result {
+		result = append(result, v...)
 	}
 	return result
 }
