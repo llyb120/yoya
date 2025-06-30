@@ -153,13 +153,31 @@ func Pos[T any](arr []T, fn func(T, int) bool) int {
 	return -1
 }
 
-func Has[T comparable](arr []T, target T) bool {
-	for _, v := range arr {
-		if v == target {
-			return true
+func Has[T comparable](arr []T, target any) bool {
+	switch target := target.(type) {
+	case func(T) bool:
+		for _, v := range arr {
+			if target(v) {
+				return true
+			}
 		}
+		return false
+
+	case func(T, int) bool:
+		for i, v := range arr {
+			if target(v, i) {
+				return true
+			}
+		}
+		return false
+	default:
+		for _, v := range arr {
+			if v == target {
+				return true
+			}
+		}
+		return false
 	}
-	return false
 }
 
 func Del[T comparable](arr *[]T, pos int) {
