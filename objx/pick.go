@@ -3,12 +3,14 @@ package objx
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/llyb120/yoya/internal"
 	_ "unsafe"
+
+	"github.com/llyb120/yoya/internal"
 )
 
 type keyWrapper struct {
@@ -191,8 +193,21 @@ func (p *picker[T]) walk(dest any, kk string) {
 			keyWrapper.matchPos--
 			p.pushResult(dest)
 		}
-		for kk, vv := range kvMap {
-			p.walk(vv, kk)
+		// 使用确定性的顺序遍历子节点，保证结果有序
+		if v.Kind() == reflect.Slice {
+			for i := 0; i < v.Len(); i++ {
+				kStr := fmt.Sprintf("%d", i)
+				p.walk(kvMap[kStr], kStr)
+			}
+		} else {
+			keys := make([]string, 0, len(kvMap))
+			for k := range kvMap {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				p.walk(kvMap[k], k)
+			}
 		}
 	} else {
 		// 如果命中尾节点
