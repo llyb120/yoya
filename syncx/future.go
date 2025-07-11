@@ -54,8 +54,11 @@ func (f Future[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(res)
 }
 
-func Mirai[T any]() Future[T] {
+func Mirai[T any](t ...T) Future[T] {
 	return func() T {
+		if len(t) > 0 {
+			return t[0]
+		}
 		var zero T
 		return zero
 	}
