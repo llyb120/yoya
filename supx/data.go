@@ -78,6 +78,17 @@ func (d Data[T]) Clone() Data[T] {
 	return item
 }
 
+func (d Data[T]) For(fn func(key string, value any) bool) {
+	for key, value := range d {
+		if strings.HasPrefix(key, "$") {
+			continue
+		}
+		if !fn(key, value) {
+			continue
+		}
+	}
+}
+
 // MarshalJSON 实现JSON序列化，优先序列化$data，然后补充其他属性
 func (d Data[T]) MarshalJSON() ([]byte, error) {
 	var dataJSON string
